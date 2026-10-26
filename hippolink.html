@@ -417,7 +417,7 @@ function viewMkt(){
 }
 function viewShop(){
   shownSlot=slotNow();
-  var h='<h2>幸福商店</h2><p class="hint">解憂者精選記憶，經 HippoLink 直接植入。每 30 分鐘補貨，所有市民同步。</p>'+
+  var h='<h2>幸福商店</h2><p class="hint">本店所有記憶皆為真實體驗，來源經解憂者認證。經 HippoLink 直接植入，每 30 分鐘補貨，所有市民同步。</p>'+
     '<div class="card" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;padding:10px 16px"><span style="font-size:.82rem;color:var(--muted)">下次補貨</span><span class="num" id="cd">'+countdown()+'</span></div><div class="list shop">';
   shopItems().forEach(function(it){
     var can=S.balance>=it.p;
