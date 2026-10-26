@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<style>body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
+<style>body{margin:0}[hidden]{display:none!important}</style>
 <title>HippoLink</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -138,19 +138,160 @@ body.critical h2{animation:jit 2.6s steps(1) infinite}
 (function(){
 var KEY='hippolink.v1';
 var CATS={'飲食':18000,'社交':26000,'感官':8000,'關係':40000,'身體':14400,'成就':31500};
-var SHOP=[
-  {id:'s1',t:'海邊的假日',c:'感官',i:3,p:108000,d:'午後的海風、冰涼的汽水，沒有任何需要擔心的事。'},
-  {id:'s2',t:'初雪',c:'感官',i:3,p:86000,d:'第一次看見雪落下，整條街都安靜了。'},
-  {id:'s3',t:'一個完美的生日',c:'關係',i:4,p:162000,d:'所有你在乎的人都記得，而且都來了。'},
-  {id:'s4',t:'全場起立鼓掌',c:'成就',i:4,p:261000,d:'舞台燈光下，你知道自己做到了。'},
-  {id:'s5',t:'被無條件地愛著',c:'關係',i:5,p:540000,d:'不需要做任何事，就被好好地愛著。限量供應。'}
+var POOL=[
+['剛出爐的菠蘿麵包','飲食',2,'外皮還燙手，咬下去會碎得滿身都是。'],
+['外婆的滷肉飯','飲食',4,'滷汁淋得剛剛好，她一直問你夠不夠吃。'],
+['冬夜的一碗湯麵','飲食',3,'加班到很晚，路邊攤老闆多給了一顆蛋。'],
+['夏天的第一口西瓜','飲食',2,'冰得發痛，汁水流到手肘。'],
+['生日那天的草莓蛋糕','飲食',3,'奶油沾到鼻尖，大家都笑了。'],
+['深夜的泡麵','飲食',2,'和室友分著吃，聊到天亮。'],
+['夜市的雞蛋糕','飲食',1,'紙袋裡熱熱的，一路走一路吃。'],
+['熱可可','飲食',2,'下雪的窗邊，杯子暖著手心。'],
+['完美的荷包蛋','飲食',2,'蛋黃剛好半熟，那天早上一切都順利。'],
+['媽媽包的水餃','飲食',4,'全家圍在桌邊包，形狀醜醜的也沒關係。'],
+['第一次喝到好咖啡','飲食',2,'原來咖啡不只是苦的。'],
+['野餐的三明治','飲食',2,'有點被壓扁了，但在草地上特別好吃。'],
+['剛摘下的橘子','飲食',2,'果皮的香氣沾在指尖一整天。'],
+['祭典的蘋果糖','飲食',2,'紅得發亮，咬下去黏住了牙齒。'],
+['跨年夜的火鍋','飲食',3,'霧氣蒙住眼鏡，倒數聲從電視傳來。'],
+['山上的烤玉米','飲食',2,'醬汁焦香，風很涼。'],
+['爺爺泡的茶','飲食',3,'他不太說話，只是一直幫你添茶。'],
+['海邊的烤魚','飲食',3,'剛釣上來的魚，用樹枝串著烤。'],
+['手工冰淇淋','飲食',2,'融得太快，只好舔個不停。'],
+['考完試的炸雞','飲食',3,'終於結束了，油膩得理直氣壯。'],
+['被老闆點名稱讚','社交',3,'會議上，他說這次多虧了你。'],
+['收到一封長長的信','社交',3,'字跡歪歪的，寫滿了你不知道的感謝。'],
+['同學會上被記得','社交',2,'多年不見，對方一眼就叫出你的名字。'],
+['陌生人的微笑','社交',1,'電梯門關上前，對方點頭笑了一下。'],
+['被邀請加入','社交',3,'他們說：「你也一起來吧。」'],
+['驚喜派對','社交',4,'燈一亮，所有人都在。'],
+['被請客','社交',2,'朋友搶著付帳，說下次換你。'],
+['群組裡的生日祝福','社交',2,'手機一直震，訊息多到滑不完。'],
+['被說「你好可靠」','社交',2,'簡單一句話，讓你記了好久。'],
+['新朋友','社交',3,'聊了三個小時，像認識很久。'],
+['合唱比賽得名','社交',3,'全班在台上抱成一團。'],
+['被鄰居分享食物','社交',2,'門口掛著一袋自家種的蔬菜和紙條。'],
+['和網友第一次見面','社交',3,'比想像中更好相處。'],
+['被當成家人','社交',4,'朋友的媽媽說：「下次再來吃飯。」'],
+['畢業典禮的合照','社交',3,'大家擠在一起，有人閉著眼睛。'],
+['午後的陽光','感官',1,'光線斜斜照進房間，灰塵在空中跳舞。'],
+['雨後的泥土味','感官',2,'空氣乾淨得像被洗過。'],
+['第一次看見海','感官',4,'比想像中大太多了，你說不出話。'],
+['滿天星星','感官',3,'躺在山上的草地，數不完。'],
+['剛洗好的床單','感官',2,'陽光曬過的味道，一躺下就想睡。'],
+['海浪聲','感官',2,'閉上眼睛，一波一波地來。'],
+['花季的公園','感官',2,'風一吹，花瓣落滿肩膀。'],
+['日出','感官',3,'天空從深藍變成橘紅，世界慢慢醒來。'],
+['螢火蟲','感官',3,'黑暗裡一閃一閃，像會呼吸的星星。'],
+['第一場雪','感官',3,'整條街都安靜了下來。'],
+['彩虹','感官',2,'雨剛停，抬頭就看見了。'],
+['舊書店的味道','感官',1,'紙張、灰塵和時間混在一起。'],
+['溫泉','感官',3,'熱氣蒸騰，全身都鬆開了。'],
+['煙火','感官',3,'砰的一聲，夜空開滿了花。'],
+['極光','感官',5,'綠色的光在天上流動，像在跳舞。'],
+['雨天的咖啡廳','感官',2,'窗外下著雨，你一點也不急。'],
+['夜晚的風','感官',1,'騎車經過河邊，風灌進袖子。'],
+['音樂會的最後一個音','感官',3,'所有聲音停下來的那一秒。'],
+['和好朋友在天台聊天','關係',3,'城市的燈很遠，你們的話很多。'],
+['被緊緊擁抱','關係',4,'不用說什麼，對方就懂了。'],
+['牽手','關係',3,'手心有點出汗，誰都沒有放開。'],
+['爸爸的肩膀','關係',4,'小時候坐在他肩上看遊行。'],
+['姐姐幫你綁頭髮','關係',3,'她手很輕，一邊哼著歌。'],
+['寵物來迎接你','關係',3,'一開門，牠就撲過來搖尾巴。'],
+['和好','關係',3,'吵了很久，最後兩個人一起笑出來。'],
+['被等待','關係',3,'下雨天，有人撐著傘在門口等你。'],
+['告白成功','關係',5,'對方紅著臉點頭。'],
+['兒時玩伴','關係',3,'一起在巷子裡跑到天黑。'],
+['家族旅行','關係',4,'車上擠滿了人和零食，一路唱歌。'],
+['半夜的電話','關係',3,'你說睡不著，對方就陪你聊到天亮。'],
+['媽媽的手','關係',4,'發燒的晚上，她的手放在你額頭上。'],
+['第一次約會','關係',4,'緊張得不知道說什麼，但很開心。'],
+['被記住喜好','關係',2,'對方點餐時，順手幫你點了你喜歡的。'],
+['和弟弟打枕頭仗','關係',2,'被媽媽罵，還是笑個不停。'],
+['朋友的婚禮','關係',3,'看著他們，你也哭了。'],
+['老狗睡在腳邊','關係',3,'牠的呼吸很規律，你不敢動。'],
+['一起看日落','關係',3,'兩個人都沒說話，就這樣坐著。'],
+['睡到自然醒','身體',2,'沒有鬧鐘，陽光正好。'],
+['跑完第一個五公里','身體',3,'喘得說不出話，但想大叫。'],
+['游泳池裡漂浮','身體',2,'耳朵泡在水裡，世界變得好安靜。'],
+['病好了的早晨','身體',3,'終於能大口呼吸。'],
+['熱水澡','身體',1,'冷了一整天，熱水打在背上。'],
+['伸懶腰','身體',1,'整個身體都被拉開了。'],
+['騎車下坡','身體',3,'放開雙腳，風呼呼地吹。'],
+['躺在草地上','身體',2,'草有點刺，但天空好藍。'],
+['在雨裡奔跑','身體',3,'反正都濕了，乾脆跑起來。'],
+['盪鞦韆盪到最高','身體',2,'有一瞬間好像能飛起來。'],
+['被按摩','身體',2,'肩膀終於不痠了。'],
+['爬到山頂','身體',4,'腿在發抖，但整片山谷都在腳下。'],
+['冬天的被窩','身體',2,'外面很冷，被子裡剛剛好。'],
+['在海裡游泳','身體',3,'浪把你輕輕托起來。'],
+['跳舞跳到忘我','身體',3,'音樂很大聲，你什麼都不想。'],
+['考上第一志願','成就',4,'看到榜單的那一刻，手在發抖。'],
+['第一份薪水','成就',3,'不多，但全部都是自己賺的。'],
+['學會騎腳踏車','成就',3,'回頭才發現沒人扶著了。'],
+['作品被展出','成就',4,'有人在你的作品前停了好久。'],
+['比賽奪冠','成就',4,'獎盃比想像中還重。'],
+['完成一幅畫','成就',3,'放下筆，退後一步看，很滿意。'],
+['通過面試','成就',3,'對方說：「歡迎加入。」'],
+['學會一首曲子','成就',2,'彈到最後一個音，沒有錯。'],
+['拿到駕照','成就',2,'第一次一個人開車出門。'],
+['被讀者感謝','成就',4,'有人說你寫的東西救了他。'],
+['完成馬拉松','成就',4,'衝過終點線的那一刻，眼淚掉下來。'],
+['升職','成就',3,'名牌上換了新的職稱。'],
+['第一次站上舞台','成就',4,'燈光很亮，掌聲很大。'],
+['修好了一台舊收音機','成就',2,'沙沙聲之後，突然傳出音樂。'],
+['畢業','成就',3,'丟起帽子的那一刻。'],
+['做出第一道菜','成就',2,'有點鹹，但家人都吃完了。'],
+['存到第一筆錢','成就',2,'看著數字，覺得未來有點希望。'],
+['考試考滿分','成就',3,'老師把考卷發回來時看了你一眼。'],
+['完成拼圖','成就',2,'最後一片放進去的瞬間。'],
+['學會游泳','成就',3,'終於不用抓著池邊了。'],
+['第一次說出真心話','成就',3,'說完之後，心裡輕了好多。'],
+['種的花開了','成就',2,'每天澆水，終於開了一朵。']
 ];
+var RARE=[
+['被無條件地愛著','關係',5,'不需要做任何事，就被好好地愛著。'],
+['孩子第一次叫你','關係',5,'含糊的一聲，但你聽得很清楚。'],
+['初戀・未曾回想','關係',5,'從未被回想過的初戀，品相完美。'],
+['全場起立鼓掌','成就',5,'所有人都站了起來，掌聲停不下來。'],
+['重逢','關係',5,'以為再也見不到的人，站在你面前。'],
+['無憂的童年夏天','感官',5,'整個暑假，沒有任何需要擔心的事。'],
+['在極光下求婚','關係',5,'天空在燃燒，對方說好。'],
+['奇蹟康復','身體',5,'醫生說，這是他見過最好的結果。'],
+['被全世界原諒','社交',5,'所有你傷害過的人，都對你說沒關係。'],
+['登上世界最高峰','成就',5,'雲在腳下，你站在最高的地方。'],
+['完美的一天','感官',5,'從醒來到睡著，每一分鐘都剛剛好。'],
+['母親的懷抱','關係',5,'最初、最安全的地方。']
+];
+
+var SLOT=30*60*1000;
+function slotNow(){return Math.floor(Date.now()/SLOT)}
+function shopItems(){
+  var sl=slotNow(),r=seed('shop'+sl),idx=POOL.map(function(_,i){return i});
+  for(var i=idx.length-1;i>0;i--){var j=Math.floor(r()*(i+1)),t=idx[i];idx[i]=idx[j];idx[j]=t}
+  var mem=(S&&S.memories)||[],got=[],tit=[];
+  mem.forEach(function(m){if(m.src==='implant'){if(m.key)got.push(m.key);tit.push(m.title)}});
+  function has(key,e){return got.indexOf(key)>=0||tit.indexOf(e[0])>=0}
+  var out=[],rare=r()<0.15,k=Math.floor(r()*RARE.length);
+  if(rare&&!has('r'+k,RARE[k]))out.push(mk(RARE[k],'r'+sl+'_'+k,true,sl,'r'+k));
+  var sold=(S&&S.sold)||[];
+  if(sold.length&&r()<0.3){var u=sold[Math.floor(r()*sold.length)];var it=mk([u.title,u.cat,u.int,u.note],'u'+sl+'_'+u.id,false,sl,null);it.used=u.id;out.push(it)}
+  idx.filter(function(n){return !has('p'+n,POOL[n])}).slice(0,5-out.length).forEach(function(n){out.push(mk(POOL[n],'p'+sl+'_'+n,false,sl,'p'+n))});
+  return out;
+}
+function mk(e,id,rare,sl,key){
+  var v=0.85+seed(e[0]+sl)()*0.35;
+  var p=(CATS[e[1]]||20000)*(0.6+e[2]*0.2)*7*v*(rare?2.5:1);
+  return{id:id,t:e[0],c:e[1],i:e[2],d:e[3],p:Math.round(p/1000)*1000,rare:rare,key:key};
+}
+function countdown(){var ms=SLOT-(Date.now()%SLOT),m=Math.floor(ms/60000),s=Math.floor(ms%60000/1000);return String(m).padStart(2,'0')+':'+String(s).padStart(2,'0')}
+
 var LOANS=[500000,1000000,3000000];
 var FX=45; // 1 新台幣 ≈ 45 元（參考韓元）
 function startBal(){return Math.round((50000+Math.random()*30000)*FX/1000)*1000}
 var RATE=0.15;
 
-var S=null, tab='lib', open=null, pending=null;
+var S=null, tab='lib', open=null, pending=null, shownSlot=null;
 
 function load(){try{var r=localStorage.getItem(KEY);return r?JSON.parse(r):null}catch(e){return null}}
 function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
@@ -275,10 +416,14 @@ function viewMkt(){
   return h+'</div><p class="hint" style="margin-top:12px">購入的記憶為二手記憶，回收價僅原價三成五。</p>';
 }
 function viewShop(){
-  var h='<h2>幸福商店</h2><p class="hint">解憂者精選記憶，經 HippoLink 直接植入。</p><div class="list shop">';
-  SHOP.forEach(function(it){
+  shownSlot=slotNow();
+  var h='<h2>幸福商店</h2><p class="hint">解憂者精選記憶，經 HippoLink 直接植入。每 30 分鐘補貨，所有市民同步。</p>'+
+    '<div class="card" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;padding:10px 16px"><span style="font-size:.82rem;color:var(--muted)">下次補貨</span><span class="num" id="cd">'+countdown()+'</span></div><div class="list shop">';
+  shopItems().forEach(function(it){
     var can=S.balance>=it.p;
-    h+='<div class="card"><div class="t"><b>'+it.t+'</b><span class="num">'+fmt(it.p)+' 元</span></div><p>'+it.d+'</p>'+
+    h+='<div class="card"'+(it.rare?' style="border-color:var(--accent)"':'')+'><div class="t"><b>'+esc(it.t)+'</b><span class="num">'+fmt(it.p)+' 元</span></div>'+
+      '<div class="meta" style="font-size:.75rem;color:var(--muted);display:flex;gap:8px;flex-wrap:wrap"><span>'+it.c+'</span><span class="dots" style="color:var(--accent)">'+'●'.repeat(it.i)+'<span style="opacity:.25">'+'●'.repeat(5-it.i)+'</span></span>'+(it.rare?'<span class="tag imp">限時稀有</span>':'')+(it.used?'<span class="tag">二手</span>':'')+'</div>'+
+      '<p>'+esc(it.d)+'</p>'+
       '<div class="btns" style="margin-top:6px">'+(pending==='buy'+it.id?'<button class="btn danger" type="button" data-buyok="'+it.id+'">確認提領</button><button class="btn ghost" type="button" data-cancel="1">取消</button>'
       :'<button class="btn" type="button" data-buy="'+it.id+'"'+(can?'':' disabled')+'>'+(can?'提領植入':'存款不足')+'</button>')+'</div></div>';
   });
@@ -318,13 +463,14 @@ function bind(){
     if(d.depok){
       var m2=find(d.depok),p=price(m2);
       S.memories=S.memories.filter(function(x){return x.id!==m2.id});
+      if(m2.src==='own'||m2.orig){S.sold=(S.sold||[]).filter(function(x){return x.id!==m2.id});S.sold.push({id:m2.id,title:m2.title,cat:m2.cat,int:m2.int,note:m2.note||''});if(S.sold.length>60)S.sold.shift()}
       S.balance+=p;S.deposits=(S.deposits||0)+1;S.mood-=m2.int*4+2;log('上繳','上繳「'+m2.title+'」',p);
       if(S.deposits%3===0){var rest=S.memories.filter(function(x){return x.src==='own'&&!x.altered});if(rest.length){rest[Math.floor(Math.random()*rest.length)].altered=now()}}
       pending=null;open=null;save();render();toast('上繳完成，入帳 '+fmt(p)+' 元');return}
     if(d.buy){pending='buy'+d.buy;render();return}
     if(d.buyok){
-      var it=SHOP.filter(function(x){return x.id===d.buyok})[0];if(S.balance<it.p)return;
-      S.balance-=it.p;S.memories.push({id:uid(),title:it.t,cat:it.c,int:it.i,note:it.d,recalls:0,src:'implant',created:now()});
+      var it=shopItems().filter(function(x){return x.id===d.buyok})[0];if(!it){pending=null;render();toast('這項商品已下架');return}if(S.balance<it.p)return;
+      S.balance-=it.p;if(it.used)S.sold=(S.sold||[]).filter(function(x){return x.id!==it.used});S.memories.push({id:uid(),title:it.t,cat:it.c,int:it.i,note:it.d,recalls:0,src:'implant',key:it.key||undefined,orig:!!it.used,created:now()});
       log('提領','提領植入「'+it.t+'」',-it.p);pending=null;save();render();toast('植入完成。你現在記得「'+it.t+'」了。');return}
     if(d.loan){pending='loan'+d.loan;render();return}
     if(d.loanok){var a=+d.loanok;S.balance+=a;S.debt+=a*(1+RATE);log('信貸','記憶信貸撥款',a);pending=null;save();render();toast('撥款完成');return}
@@ -366,6 +512,7 @@ function openSheet(importOnly){
   };
 }
 
+setInterval(function(){if(!S||tab!=='shop')return;if(slotNow()!==shownSlot){pending=null;render();toast('商店已補貨');return}var c=document.getElementById('cd');if(c)c.textContent=countdown()},1000);
 S=load();if(S&&typeof S.mood!=='number'){S.mood=startMood();save()}render();
 })();
 </script>
