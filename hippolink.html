@@ -1,0 +1,374 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
+<title>HippoLink</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@600;900&family=Noto+Sans+TC:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a single-look dark device screen (HippoLink terminal): status card on top, one panel per tab, fixed bottom tab bar; instability shows as noise */
+:root{
+  color-scheme:dark;
+  --bg:#121014;--panel:#1b181e;--panel2:#241f27;--fg:#efe8f1;--muted:#9a8f9e;--line:#332c36;
+  --accent:#e08aad;--accent-dim:#5a2a3e;--ok:#78d1a5;--warn:#f0c46a;--bad:#ff6b78;
+  --display:"Noto Serif TC","Songti TC",serif;
+  --body:"Noto Sans TC","PingFang TC","Microsoft JhengHei",sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+}
+*{box-sizing:border-box}
+html,body{min-height:100%}
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.6;padding-bottom:calc(76px + env(safe-area-inset-bottom,0px))}
+button,input,select,textarea{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.wrap{max-width:560px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.num{font-family:var(--mono);font-variant-numeric:tabular-nums}
+
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--bg)}
+.bar{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);border-bottom:1px solid var(--line)}
+.bar .wrap{display:flex;align-items:center;justify-content:space-between;gap:12px;padding-block:12px}
+.brand{font-family:var(--mono);letter-spacing:.18em;font-size:.82rem}
+.brand b{color:var(--accent);font-weight:500}
+.who{display:flex;align-items:center;gap:10px;min-width:0}
+.who span{font-size:.85rem;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:9em}
+.icon-btn{background:none;border:1px solid var(--line);border-radius:6px;padding:4px 10px;cursor:pointer;font-size:.8rem;color:var(--muted)}
+
+.status{margin-top:16px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:18px}
+.status .lbl{font-size:.75rem;color:var(--muted);letter-spacing:.12em}
+.bal{font-family:var(--mono);font-size:2.2rem;font-weight:500;line-height:1.2;margin:2px 0 10px}
+.bal small{font-size:.9rem;color:var(--muted);margin-left:6px}
+.row2{display:flex;gap:16px;flex-wrap:wrap;font-size:.85rem;color:var(--muted)}
+.row2 b{color:var(--fg);font-weight:500}
+.meter{margin-top:14px}
+.meter .top{display:flex;justify-content:space-between;font-size:.78rem}
+.track{height:8px;background:var(--panel2);border-radius:99px;overflow:hidden;margin-top:6px}
+.fill{height:100%;border-radius:99px;transition:width .5s}
+.state{font-family:var(--mono);font-size:.78rem}
+
+.alert{margin-top:12px;padding:12px 14px;border-radius:8px;font-size:.88rem;border:1px solid}
+.alert.warn{border-color:var(--warn);color:var(--warn)}
+.alert.bad{border-color:var(--bad);color:var(--bad);background:color-mix(in srgb,var(--bad) 10%,transparent)}
+
+h2{font-family:var(--display);font-size:1.25rem;margin:24px 0 12px;font-weight:600}
+.hint{font-size:.82rem;color:var(--muted);margin:-6px 0 12px}
+
+.btn{background:var(--accent);color:#1a0d13;border:0;border-radius:8px;padding:10px 16px;cursor:pointer;font-weight:500}
+.btn.ghost{background:none;color:var(--fg);border:1px solid var(--line)}
+.btn.danger{background:var(--bad);color:#1a0d13}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.btns{display:flex;gap:8px;flex-wrap:wrap}
+
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 16px}
+.list{display:grid;gap:10px}
+.mem{cursor:pointer;text-align:left;width:100%;display:block}
+.mem .t{display:flex;justify-content:space-between;gap:12px;align-items:baseline}
+.mem .t b{font-weight:500;min-width:0;overflow-wrap:anywhere}
+.mem .meta{font-size:.78rem;color:var(--muted);display:flex;gap:10px;flex-wrap:wrap;margin-top:2px}
+.tag{font-size:.7rem;border:1px solid var(--line);border-radius:4px;padding:0 6px;color:var(--muted)}
+.tag.imp{border-color:var(--accent-dim);color:var(--accent)}
+.dots{letter-spacing:2px;color:var(--accent)}
+.detail{margin-top:12px;padding-top:12px;border-top:1px dashed var(--line);font-size:.9rem}
+.detail p{margin:0 0 10px;white-space:pre-wrap;overflow-wrap:anywhere}
+.kv{display:grid;grid-template-columns:7em 1fr;gap:4px 10px;font-size:.8rem;color:var(--muted);margin-bottom:12px}
+.kv span:nth-child(even){color:var(--fg)}
+.sys{color:var(--bad)!important}
+
+form.add{display:grid;gap:10px}
+label{font-size:.8rem;color:var(--muted);display:grid;gap:4px}
+input[type=text],select,textarea{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:9px 11px;width:100%}
+textarea{min-height:5em;resize:vertical}
+input[type=range]{width:100%;accent-color:var(--accent)}
+details.adder{margin-bottom:14px}
+details.adder summary{cursor:pointer;list-style:none;display:inline-block}
+details.adder summary::-webkit-details-marker{display:none}
+details.adder[open] summary{margin-bottom:12px}
+
+.mkt{display:grid;gap:0}
+.mkt .r{display:grid;grid-template-columns:1fr auto auto;gap:14px;padding:12px 0;border-bottom:1px solid var(--line);align-items:baseline}
+.mkt .r:last-child{border-bottom:0}
+.up{color:var(--ok)}.down{color:var(--bad)}
+
+.shop .card{display:grid;gap:6px}
+.shop .card .t{display:flex;justify-content:space-between;gap:10px;align-items:baseline}
+.shop .card p{margin:0;font-size:.85rem;color:var(--muted)}
+
+.log .r{display:grid;grid-template-columns:1fr auto;gap:10px;padding:10px 0;border-bottom:1px solid var(--line);font-size:.88rem}
+.log .r small{display:block;color:var(--muted);font-size:.72rem;font-family:var(--mono)}
+.empty{color:var(--muted);font-size:.9rem;padding:20px;text-align:center;border:1px dashed var(--line);border-radius:10px}
+
+nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:6;background:var(--panel);border-top:1px solid var(--line);
+  padding-bottom:env(safe-area-inset-bottom,0px);padding-left:env(safe-area-inset-left,0px);padding-right:env(safe-area-inset-right,0px)}
+nav.tabs .in{max-width:560px;margin:0 auto;display:grid;grid-template-columns:repeat(5,1fr)}
+nav.tabs button{background:none;border:0;padding:10px 0 12px;cursor:pointer;color:var(--muted);font-size:.78rem;display:grid;justify-items:center;gap:2px}
+nav.tabs button .g{font-family:var(--mono);font-size:.95rem}
+nav.tabs button[aria-current="true"]{color:var(--accent)}
+
+#toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(86px + env(safe-area-inset-bottom,0px));z-index:30;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:10px 16px;font-size:.88rem;max-width:calc(100% - 32px);text-align:center}
+
+/* onboarding + sheets */
+.onb{padding-block:48px}
+.onb h1{font-family:var(--display);font-weight:900;font-size:2rem;margin:10px 0 8px}
+.onb p{color:var(--muted);margin:0 0 20px}
+.sheet{position:fixed;inset:0;z-index:25;background:color-mix(in srgb,var(--bg) 80%,transparent);display:flex;align-items:flex-end;justify-content:center}
+.sheet .box{background:var(--panel);border:1px solid var(--line);border-radius:14px 14px 0 0;width:100%;max-width:560px;max-height:85vh;overflow:auto;
+  padding:20px max(16px,env(safe-area-inset-right,0px)) calc(20px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px))}
+.sheet h3{margin:0 0 10px;font-family:var(--display)}
+.sheet textarea{font-family:var(--mono);font-size:.75rem;min-height:7em}
+.sheet section{padding-block:14px;border-bottom:1px solid var(--line)}
+.sheet section:last-child{border-bottom:0}
+.foot{font-size:.72rem;color:var(--muted);text-align:center;padding-block:28px}
+
+/* instability */
+body.unstable::after,body.critical::after{content:"";position:fixed;inset:0;pointer-events:none;z-index:40;
+  background:repeating-linear-gradient(0deg,rgba(255,255,255,.035) 0 1px,transparent 1px 3px);mix-blend-mode:screen}
+body.critical .bal{animation:jit 1.8s steps(1) infinite}
+body.critical h2{animation:jit 2.6s steps(1) infinite}
+@keyframes jit{0%,88%{transform:none}90%{transform:translateX(3px);opacity:.6}93%{transform:translateX(-2px)}}
+@media (prefers-reduced-motion:reduce){body.critical .bal,body.critical h2{animation:none}.fill{transition:none}}
+</style>
+</head>
+<body>
+
+<div id="app"></div>
+<div id="toast" hidden role="status"></div>
+
+<script>
+(function(){
+var KEY='hippolink.v1';
+var CATS={'飲食':18000,'社交':26000,'感官':8000,'關係':40000,'身體':14400,'成就':31500};
+var SHOP=[
+  {id:'s1',t:'海邊的假日',c:'感官',i:3,p:108000,d:'午後的海風、冰涼的汽水，沒有任何需要擔心的事。'},
+  {id:'s2',t:'初雪',c:'感官',i:3,p:86000,d:'第一次看見雪落下，整條街都安靜了。'},
+  {id:'s3',t:'一個完美的生日',c:'關係',i:4,p:162000,d:'所有你在乎的人都記得，而且都來了。'},
+  {id:'s4',t:'全場起立鼓掌',c:'成就',i:4,p:261000,d:'舞台燈光下，你知道自己做到了。'},
+  {id:'s5',t:'被無條件地愛著',c:'關係',i:5,p:540000,d:'不需要做任何事，就被好好地愛著。限量供應。'}
+];
+var LOANS=[500000,1000000,3000000];
+var FX=45; // 1 新台幣 ≈ 45 元（參考韓元）
+function startBal(){return Math.round((50000+Math.random()*30000)*FX/1000)*1000}
+var RATE=0.15;
+
+var S=null, tab='lib', open=null, pending=null;
+
+function load(){try{var r=localStorage.getItem(KEY);return r?JSON.parse(r):null}catch(e){return null}}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
+function uid(){return Math.random().toString(36).slice(2,9)}
+function fmt(n){return Math.round(n).toLocaleString('en-US')}
+function now(){return new Date().toISOString()}
+function esc(s){return String(s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
+function when(iso){var d=new Date(iso);return (d.getMonth()+1)+'/'+d.getDate()+' '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0')}
+
+function seed(str){var h=1779033703;for(var i=0;i<str.length;i++){h=Math.imul(h^str.charCodeAt(i),3432918353);h=h<<13|h>>>19}
+  return function(){h=Math.imul(h^h>>>16,2246822507);h=Math.imul(h^h>>>13,3266489909);return ((h^=h>>>16)>>>0)/4294967296}}
+function dayKey(off){var d=new Date();d.setDate(d.getDate()-(off||0));return d.toISOString().slice(0,10)}
+function factor(cat,off){return 0.8+seed(dayKey(off)+cat)()*0.45}
+function price(m){
+  var base=CATS[m.cat]||300;
+  var p=base*(0.6+m.int*0.2)*factor(m.cat)*Math.pow(0.92,m.recalls||0);
+  if(m.src==='implant')p*=0.35;
+  return Math.max(900,p);
+}
+function stability(){
+  var s=S.mood;S.memories.forEach(function(m){s+=m.int*(m.src==='implant'?0.8:1.5)});
+  s-=Math.min(40,S.debt/36000);
+  return Math.max(0,Math.min(100,Math.round(s)));
+}
+function stateOf(v){
+  if(v>=50)return{k:'穩定',c:'var(--ok)'};
+  if(v>=25)return{k:'波動',c:'var(--warn)'};
+  if(v>=10)return{k:'失衡',c:'var(--bad)'};
+  return{k:'壞帳',c:'var(--bad)'};
+}
+function log(type,desc,amt){S.log.unshift({t:now(),type:type,desc:desc,amt:amt});if(S.log.length>200)S.log.length=200}
+function toast(msg){var t=document.getElementById('toast');t.textContent=msg;t.hidden=false;clearTimeout(toast._);toast._=setTimeout(function(){t.hidden=true},2600)}
+
+function startMood(){return 45+Math.round(Math.random()*20)}
+function fresh(name){return{name:name,balance:0,debt:0,mood:startMood(),memories:[],log:[],deposits:0,created:now()}}
+function sample(){
+  var s=fresh('範例角色');
+  [['媽媽煮的番茄蛋花湯','飲食',3,'下雨天回家，廚房裡已經有湯的味道。'],
+   ['被老師當眾稱讚作文','社交',2,'他唸出我寫的句子，全班都轉頭看我。'],
+   ['和阿凜在天台看煙火','關係',5,'我們都沒說話，但我知道那一刻我們想的是同一件事。'],
+   ['第一次領到薪水','成就',3,'不多，但是是自己賺的。'],
+   ['午睡醒來的陽光','感官',1,'窗簾被風吹起來，光落在手背上。']
+  ].forEach(function(a){s.memories.push({id:uid(),title:a[0],cat:a[1],int:a[2],note:a[3],recalls:0,src:'own',created:now()})});
+  s.balance=startBal();s.log.push({t:now(),type:'開戶',desc:'帳戶開通，初始存款',amt:s.balance});
+  return s;
+}
+
+/* ---------- render ---------- */
+function render(){
+  var app=document.getElementById('app');
+  if(!S){app.innerHTML=onboarding();bindOnb();document.body.className='';return}
+  var st=stability(),so=stateOf(st);
+  document.body.className=st<10?'critical unstable':st<25?'unstable':'';
+  var h='';
+  h+='<div class="bar"><div class="wrap"><div class="brand"><b>HIPPO</b>LINK</div><div class="who"><span>'+esc(S.name)+'</span><button class="icon-btn" id="openSet" type="button">設定</button></div></div></div>';
+  h+='<div class="wrap">';
+  h+='<div class="status"><div class="lbl">記憶存款</div><div class="bal num">'+fmt(S.balance)+'<small>元</small></div>';
+  h+='<div class="row2"><span>負債 <b class="num">'+fmt(S.debt)+'</b> 元</span><span>持有記憶 <b class="num">'+S.memories.length+'</b> 段</span></div>';
+  h+='<div class="meter"><div class="top"><span>情緒穩定度</span><span class="state" style="color:'+so.c+'">'+st+' · '+so.k+'</span></div><div class="track"><div class="fill" style="width:'+st+'%;background:'+so.c+'"></div></div></div></div>';
+  if(st<10)h+='<div class="alert bad">您的帳戶已列為壞帳。依《記憶交易管理條例》，執法單位已收到通知。請留在原地，勿自行移動。</div>';
+  else if(st<25)h+='<div class="alert warn">偵測到情緒失衡徵兆。建議盡速提領幸福記憶，以維持穩定。</div>';
+  h+=({lib:viewLib,mkt:viewMkt,shop:viewShop,loan:viewLoan,log:viewLog})[tab]();
+  h+='<div class="foot">原創企劃《解憂者有限公司》道具 · 資料只儲存在這台裝置的瀏覽器</div></div>';
+  h+='<nav class="tabs" aria-label="功能"><div class="in">'+
+    [['lib','◎','記憶庫'],['mkt','↗','行情'],['shop','◇','商店'],['loan','⇄','信貸'],['log','≡','明細']].map(function(t){
+      return '<button type="button" data-tab="'+t[0]+'" aria-current="'+(tab===t[0])+'"><span class="g">'+t[1]+'</span>'+t[2]+'</button>'}).join('')+'</div></nav>';
+  app.innerHTML=h;bind();
+}
+
+function onboarding(){
+  return '<div class="wrap onb"><div class="brand"><b>HIPPO</b>LINK</div><h1>歡迎使用 HippoLink</h1>'+
+  '<p>由解憂者有限公司提供。建立帳戶後，即可保存、上繳與提領幸福記憶。</p>'+
+  '<form id="reg" class="add"><label>角色名稱<input type="text" id="regName" maxlength="20" placeholder="例如：林予晴" required></label>'+
+  '<div class="btns"><button class="btn" type="submit">建立帳戶</button><button class="btn ghost" type="button" id="demo">以範例角色試用</button></div></form>'+
+  '<p style="margin-top:24px;font-size:.8rem">有備份碼？<button class="icon-btn" type="button" id="onbImport">匯入帳戶</button></p>'+
+  '<div class="foot">原創企劃《解憂者有限公司》道具 · 資料只儲存在這台裝置的瀏覽器</div></div>';
+}
+function bindOnb(){
+  document.getElementById('reg').onsubmit=function(e){e.preventDefault();var n=document.getElementById('regName').value.trim();if(!n)return;
+    S=fresh(n);S.balance=startBal();log('開戶','帳戶開通，初始存款',S.balance);save();tab='lib';render();toast('帳戶已建立，先新增幾段記憶吧')};
+  document.getElementById('demo').onclick=function(){S=sample();save();render();toast('已載入範例角色')};
+  document.getElementById('onbImport').onclick=function(){openSheet(true)};
+}
+
+function memCard(m){
+  var p=price(m),isOpen=open===m.id;
+  var h='<div class="card"><button type="button" class="mem" data-open="'+m.id+'" aria-expanded="'+isOpen+'"><div class="t"><b>'+esc(m.title)+'</b><span class="num">'+fmt(p)+' 元</span></div>'+
+    '<div class="meta"><span>'+m.cat+'</span><span class="dots">'+'●'.repeat(m.int)+'<span style="opacity:.25">'+'●'.repeat(5-m.int)+'</span></span>'+
+    (m.src==='implant'?'<span class="tag imp">購入</span>':'<span class="tag">本人</span>')+'</div></button>';
+  if(isOpen){
+    h+='<div class="detail">'+(m.note?'<p>'+esc(m.note)+'</p>':'')+
+      '<div class="kv"><span>回想次數</span><span class="num">'+(m.recalls||0)+'</span><span>建立時間</span><span>'+when(m.created)+'</span>'+
+      '<span>最後同步者</span><span class="'+(m.altered?'sys':'')+'">'+(m.altered?'SYSTEM · '+when(m.altered):'本人')+'</span></div>'+
+      '<div class="btns"><button class="btn ghost" type="button" data-recall="'+m.id+'">回想</button>'+
+      (pending==='dep'+m.id?'<button class="btn danger" type="button" data-depok="'+m.id+'">確認上繳 '+fmt(p)+' 元</button><button class="btn ghost" type="button" data-cancel="1">取消</button>'
+        :'<button class="btn" type="button" data-dep="'+m.id+'">上繳</button>')+'</div>'+
+      '<p style="font-size:.75rem;color:var(--muted);margin:10px 0 0">上繳後這段記憶將從你的腦中移除。每次回想都會讓記憶的品相下降。</p></div>';
+  }
+  return h+'</div>';
+}
+function viewLib(){
+  var h='<h2>記憶庫</h2>';
+  h+='<details class="adder"'+(S.memories.length?'':' open')+'><summary class="btn ghost">＋ 新增記憶</summary>'+
+    '<form class="add card" id="addForm"><label>標題<input type="text" id="mTitle" maxlength="40" required placeholder="例如：和姊姊去夜市"></label>'+
+    '<label>類型<select id="mCat">'+Object.keys(CATS).map(function(c){return '<option>'+c+'</option>'}).join('')+'</select></label>'+
+    '<label>強烈程度 <span id="mIntV">3</span><input type="range" id="mInt" min="1" max="5" value="3"></label>'+
+    '<label>描述<textarea id="mNote" maxlength="400" required placeholder="那天發生了什麼？"></textarea></label>'+
+    '<button class="btn" type="submit">儲存記憶</button></form></details>';
+  if(!S.memories.length)h+='<div class="empty">記憶庫是空的。新增角色的幸福記憶，之後可以上繳換成存款。</div>';
+  else{
+    var own=S.memories.filter(function(m){return m.src!=='implant'}),imp=S.memories.filter(function(m){return m.src==='implant'});
+    h+='<div class="list">'+own.concat(imp).map(memCard).join('')+'</div>';
+  }
+  return h;
+}
+function viewMkt(){
+  var h='<h2>今日行情</h2><p class="hint">強烈程度 3、未曾回想的記憶收購價。由解憂者專利演算法每日更新。</p><div class="card mkt">';
+  Object.keys(CATS).forEach(function(c){
+    var t=CATS[c]*1.2*factor(c),y=CATS[c]*1.2*factor(c,1),d=(t-y)/y*100;
+    h+='<div class="r"><span>'+c+'</span><span class="num">'+fmt(t)+'</span><span class="num '+(d>=0?'up':'down')+'">'+(d>=0?'▲':'▼')+Math.abs(d).toFixed(1)+'%</span></div>';
+  });
+  return h+'</div><p class="hint" style="margin-top:12px">購入的記憶為二手記憶，回收價僅原價三成五。</p>';
+}
+function viewShop(){
+  var h='<h2>幸福商店</h2><p class="hint">解憂者精選記憶，經 HippoLink 直接植入。</p><div class="list shop">';
+  SHOP.forEach(function(it){
+    var can=S.balance>=it.p;
+    h+='<div class="card"><div class="t"><b>'+it.t+'</b><span class="num">'+fmt(it.p)+' 元</span></div><p>'+it.d+'</p>'+
+      '<div class="btns" style="margin-top:6px">'+(pending==='buy'+it.id?'<button class="btn danger" type="button" data-buyok="'+it.id+'">確認提領</button><button class="btn ghost" type="button" data-cancel="1">取消</button>'
+      :'<button class="btn" type="button" data-buy="'+it.id+'"'+(can?'':' disabled')+'>'+(can?'提領植入':'存款不足')+'</button>')+'</div></div>';
+  });
+  return h+'</div>';
+}
+function viewLoan(){
+  var h='<h2>記憶信貸</h2><p class="hint">當日撥款。借款需償還本金加 15% 手續費，以存款償還。</p>';
+  h+='<div class="card"><div class="lbl" style="font-size:.78rem;color:var(--muted)">目前負債</div><div class="num" style="font-size:1.6rem">'+fmt(S.debt)+' 元</div>'+
+    '<div class="btns" style="margin-top:10px"><button class="btn ghost" type="button" data-repay="100000"'+(S.debt>0&&S.balance>0?'':' disabled')+'>還款 100,000</button>'+
+    '<button class="btn ghost" type="button" data-repay="all"'+(S.debt>0&&S.balance>0?'':' disabled')+'>盡量還清</button></div></div>';
+  h+='<h2 style="font-size:1.05rem">申請借款</h2><div class="list">';
+  LOANS.forEach(function(a){
+    h+='<div class="card" style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap"><div><b class="num">'+fmt(a)+' 元</b><div style="font-size:.78rem;color:var(--muted)">應還 '+fmt(a*(1+RATE))+' 元</div></div>'+
+      (pending==='loan'+a?'<div class="btns"><button class="btn danger" type="button" data-loanok="'+a+'">確認借款</button><button class="btn ghost" type="button" data-cancel="1">取消</button></div>'
+      :'<button class="btn" type="button" data-loan="'+a+'">借款</button>')+'</div>';
+  });
+  return h+'</div><p class="hint" style="margin-top:12px">負債過高將影響情緒穩定度。逾期未償者，本公司將依法通報主管機關。</p>';
+}
+function viewLog(){
+  if(!S.log.length)return '<h2>交易明細</h2><div class="empty">尚無交易紀錄。</div>';
+  return '<h2>交易明細</h2><div class="card log">'+S.log.map(function(l){
+    return '<div class="r"><div>'+esc(l.desc)+'<small>'+when(l.t)+' · '+l.type+'</small></div><span class="num '+(l.amt>=0?'up':'down')+'">'+(l.amt>=0?'+':'−')+fmt(Math.abs(l.amt))+'</span></div>'}).join('')+'</div>';
+}
+
+/* ---------- actions ---------- */
+function find(id){for(var i=0;i<S.memories.length;i++)if(S.memories[i].id===id)return S.memories[i]}
+function bind(){
+  var app=document.getElementById('app');
+  app.onclick=function(e){
+    var b=e.target.closest('button');if(!b)return;var d=b.dataset;
+    if(d.tab){tab=d.tab;pending=null;open=null;render();window.scrollTo(0,0);return}
+    if(b.id==='openSet'){openSheet(false);return}
+    if(d.cancel){pending=null;render();return}
+    if(d.open){open=open===d.open?null:d.open;pending=null;render();return}
+    if(d.recall){var m=find(d.recall);m.recalls=(m.recalls||0)+1;save();render();toast('你回想了「'+m.title+'」。品相下降了一點。');return}
+    if(d.dep){pending='dep'+d.dep;render();return}
+    if(d.depok){
+      var m2=find(d.depok),p=price(m2);
+      S.memories=S.memories.filter(function(x){return x.id!==m2.id});
+      S.balance+=p;S.deposits=(S.deposits||0)+1;S.mood-=m2.int*4+2;log('上繳','上繳「'+m2.title+'」',p);
+      if(S.deposits%3===0){var rest=S.memories.filter(function(x){return x.src==='own'&&!x.altered});if(rest.length){rest[Math.floor(Math.random()*rest.length)].altered=now()}}
+      pending=null;open=null;save();render();toast('上繳完成，入帳 '+fmt(p)+' 元');return}
+    if(d.buy){pending='buy'+d.buy;render();return}
+    if(d.buyok){
+      var it=SHOP.filter(function(x){return x.id===d.buyok})[0];if(S.balance<it.p)return;
+      S.balance-=it.p;S.memories.push({id:uid(),title:it.t,cat:it.c,int:it.i,note:it.d,recalls:0,src:'implant',created:now()});
+      log('提領','提領植入「'+it.t+'」',-it.p);pending=null;save();render();toast('植入完成。你現在記得「'+it.t+'」了。');return}
+    if(d.loan){pending='loan'+d.loan;render();return}
+    if(d.loanok){var a=+d.loanok;S.balance+=a;S.debt+=a*(1+RATE);log('信貸','記憶信貸撥款',a);pending=null;save();render();toast('撥款完成');return}
+    if(d.repay){
+      var amt=d.repay==='all'?Math.min(S.balance,S.debt):Math.min(100000,S.balance,S.debt);
+      if(amt<=0)return;S.balance-=amt;S.debt-=amt;if(S.debt<1)S.debt=0;log('還款','信貸還款',-amt);save();render();toast('已還款 '+fmt(amt)+' 元');return}
+  };
+  var f=document.getElementById('addForm');
+  if(f){
+    var r=document.getElementById('mInt');r.oninput=function(){document.getElementById('mIntV').textContent=r.value};
+    f.onsubmit=function(e){e.preventDefault();var t=document.getElementById('mTitle').value.trim(),nt=document.getElementById('mNote').value.trim();if(!t||!nt){toast(!t?'請填寫標題':'請填寫描述');return}
+      S.memories.unshift({id:uid(),title:t,cat:document.getElementById('mCat').value,int:+r.value,note:nt,recalls:0,src:'own',created:now()});
+      save();render();toast('記憶已儲存')};
+  }
+}
+
+/* ---------- settings sheet ---------- */
+function openSheet(importOnly){
+  var el=document.createElement('div');el.className='sheet';el.setAttribute('role','dialog');
+  var code='';try{code=btoa(unescape(encodeURIComponent(JSON.stringify(S||{}))))}catch(e){}
+  el.innerHTML='<div class="box">'+
+    (importOnly?'':'<section><h3>匯出備份碼</h3><p class="hint" style="margin:0 0 8px">換裝置前先複製備份碼並自行保存。</p><textarea id="exp" readonly>'+code+'</textarea><div class="btns" style="margin-top:8px"><button class="btn ghost" type="button" id="copy">複製</button></div></section>')+
+    '<section><h3>匯入備份碼</h3><textarea id="imp" placeholder="貼上備份碼"></textarea><div class="btns" style="margin-top:8px"><button class="btn ghost" type="button" id="doImp">匯入</button></div></section>'+
+    (importOnly?'':'<section><h3>重設帳戶</h3><p class="hint" style="margin:0 0 8px">刪除這台裝置上的所有資料，無法復原。</p><div class="btns" id="resetBox"><button class="btn ghost" type="button" id="reset">重設帳戶</button></div></section>')+
+    '<section><button class="btn" type="button" id="closeS">關閉</button></section></div>';
+  document.body.appendChild(el);
+  function close(){el.remove()}
+  el.onclick=function(e){if(e.target===el)close()};
+  el.querySelector('#closeS').onclick=close;
+  var cp=el.querySelector('#copy');if(cp)cp.onclick=function(){var ta=el.querySelector('#exp');
+    try{navigator.clipboard.writeText(ta.value).then(function(){toast('已複製')},function(){ta.select();toast('請長按全選後複製')})}catch(e){ta.select();toast('請長按全選後複製')}};
+  el.querySelector('#doImp').onclick=function(){
+    try{var o=JSON.parse(decodeURIComponent(escape(atob(el.querySelector('#imp').value.trim()))));if(!o||!o.name||!Array.isArray(o.memories))throw 0;if(typeof o.mood!=='number')o.mood=startMood();
+      S=o;save();close();tab='lib';render();toast('已匯入「'+o.name+'」')}catch(e){toast('備份碼無法辨識，請確認是否完整貼上')}};
+  var rs=el.querySelector('#reset');if(rs)rs.onclick=function(){
+    el.querySelector('#resetBox').innerHTML='<button class="btn danger" type="button" id="resetOk">確定刪除</button><button class="btn ghost" type="button" id="resetNo">取消</button>';
+    el.querySelector('#resetOk').onclick=function(){try{localStorage.removeItem(KEY)}catch(e){}S=null;close();render()};
+    el.querySelector('#resetNo').onclick=function(){close();openSheet(false)};
+  };
+}
+
+S=load();if(S&&typeof S.mood!=='number'){S.mood=startMood();save()}render();
+})();
+</script>
+
+</body>
+</html>
