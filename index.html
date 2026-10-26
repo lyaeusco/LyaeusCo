@@ -253,9 +253,9 @@ body.hit main{animation:shake .35s steps(2) 2}
           <h3>會員寄賣區</h3>
           <p class="fine">以下為會員自行刊登之寄賣資訊，內容由刊登者負責。</p>
           <div class="ads">
-            <div class="ad"><div class="t">出售｜畢業典禮那天</div><p>不苟言笑的父親微笑著拍了拍我的肩膀。我想我不會再需要它了。</p><div class="m"><span>刊登者 #20931</span><span>寄賣價 1,280 元</span></div></div>
-            <div class="ad"><div class="t">急售｜寧靜的一天</div><p>如題非常寧靜而美好的一天，內有貓隻怕貓者慎入。房租快到期了，誠心出售，可議。</p><div class="m"><span>刊登者 #08812</span><span>寄賣價 640 元</span></div></div>
-            <div class="ad"><div class="t">徵求｜任何「被擁抱」的記憶</div><p>預算不多，片段也可以，只要是真的。</p><div class="m"><span>刊登者 #33507</span><span>預算 300 元</span></div></div>
+            <div class="ad"><div class="t">出售｜畢業典禮那天</div><p>不苟言笑的父親微笑著拍了拍我的肩膀。我想我不會再需要它了。</p><div class="m"><span>刊登者 #20931</span><span>寄賣價 57,600 元</span></div></div>
+            <div class="ad"><div class="t">急售｜寧靜的一天</div><p>如題非常寧靜而美好的一天，內有貓隻怕貓者慎入。房租快到期了，誠心出售，可議。</p><div class="m"><span>刊登者 #08812</span><span>寄賣價 28,800 元</span></div></div>
+            <div class="ad"><div class="t">徵求｜任何「被擁抱」的記憶</div><p>預算不多，片段也可以，只要是真的。</p><div class="m"><span>刊登者 #33507</span><span>預算 13,500 元</span></div></div>
           </div>
         </div>
       </div>
@@ -335,7 +335,7 @@ body.hit main{animation:shake .35s steps(2) 2}
   var reduce=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   // market
-  var items=[["好吃的一餐","飲食",426],["被誇獎","社交",581],["午後的陽光","感官",179],["收到禮物","社交",734],["朋友的擁抱","關係",882],["睡到自然醒","身體",315]];
+  var items=[["好吃的一餐","飲食",19170],["被誇獎","社交",26150],["午後的陽光","感官",8060],["收到禮物","社交",33030],["朋友的擁抱","關係",39690],["睡到自然醒","身體",14180]];
   var prev=items.map(function(i){return i[2]*(1+(Math.random()-.5)*.03)});
   var board=document.getElementById('board');
   function render(){
@@ -346,7 +346,7 @@ body.hit main{animation:shake .35s steps(2) 2}
     document.getElementById('clock').textContent='更新 '+new Date().toTimeString().slice(0,8);
   }
   render();
-  if(!reduce)setInterval(function(){items.forEach(function(it,k){prev[k]=it[2];it[2]=Math.max(50,it[2]*(1+(Math.random()-.53)*.04))});render();},3000);
+  if(!reduce)setInterval(function(){items.forEach(function(it,k){prev[k]=it[2];it[2]=Math.max(2250,it[2]*(1+(Math.random()-.53)*.04))});render();},3000);
 
   // orb
   var c=document.getElementById('orb'),x=c.getContext('2d');
