@@ -131,6 +131,10 @@ section{padding-block:56px;border-top:1px solid var(--line)}
 .ooc{background:var(--surface);border-top:1px solid var(--line);padding-block:40px}
 .ooc h2{font-size:1.2rem;margin:4px 0 12px}
 .ooc ul{margin:0;padding-left:1.2em;font-size:.92rem}
+.ooc .links{display:flex;gap:12px;flex-wrap:wrap;margin-top:20px}
+.ooc .links a{display:inline-block;text-decoration:none;padding:12px 22px;font-weight:500;letter-spacing:.05em;border:1px solid var(--accent)}
+.ooc .links a.primary{background:var(--accent);color:var(--bg)}
+.ooc .links a.secondary{color:var(--accent)}
 .ooc .again{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px}
 .ooc .again button{background:none;border:1px solid var(--line);color:var(--fg);padding:6px 12px;cursor:pointer;font-size:.85rem}
 footer{padding-block:24px 40px;font-size:.78rem;color:var(--muted)}
@@ -294,8 +298,12 @@ body.hit main{animation:shake .35s steps(2) 2}
     <ul>
       <li>可報名陣營：解憂者員工、執法者、一般市民、反抗者。</li>
       <li>其他陣營的訊息藏在這個網站裡，以公告、寄賣廣告和訊號的形式出現。</li>
-      <li>參與規則、報名表與時程即將公布。本企劃存在未公開設定，將隨劇情揭露。</li>
+      <li>報名前請先閱讀完整世界觀與參與規則。本企劃存在未公開設定，將隨劇情揭露。</li>
     </ul>
+    <div class="links">
+      <a class="primary" href="https://docs.google.com/forms/d/e/1FAIpQLSc6_GpIsWdkMx0-SleElnQFl0Ex2WlkdmMDSq7jIds3AqowkA/viewform" target="_blank" rel="noopener">前往報名</a>
+      <a class="secondary" href="https://app.notion.com/p/_-405b47c6bc6a804f96faffe1c4304521?pvs=12" target="_blank" rel="noopener">完整世界觀</a>
+    </div>
     <div class="again">
       <button type="button" id="againGov">再看一次：政府公告</button>
       <button type="button" id="againRebel">再看一次：截獲訊號</button>
