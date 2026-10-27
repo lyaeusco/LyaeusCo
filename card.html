@@ -97,6 +97,9 @@ input[type=range]{width:100%;accent-color:var(--accent)}
           <label>上下<input type="range" id="oy" min="-1" max="1" step="0.01" value="0"></label>
         </div>
         <p class="hint" style="margin:0">建議上傳直式圖片。圖片只在你的瀏覽器處理，不會上傳到任何地方。</p>
+        <label>或用文字描述外觀<textarea id="look" maxlength="160" placeholder="沒有立繪時，這段文字會顯示在立繪區。例如：及肩黑髮，總穿著洗到褪色的灰色外套，左手腕戴著舊型 HippoLink。"></textarea></label>
+        <span class="count" id="lookC"></span>
+        <button class="btn ghost" type="button" id="clearImg" style="align-self:flex-start">移除圖片，改用文字</button>
       </fieldset>
 
       <fieldset>
@@ -156,7 +159,7 @@ var TH={
 var DEP=['富裕','普通','拮据','負債'];
 var SERIF='"Noto Serif TC","Songti TC",serif',SANS='"Noto Sans TC","PingFang TC","Microsoft JhengHei",sans-serif',MONO='"IBM Plex Mono",ui-monospace,Menlo,monospace';
 var cv=document.getElementById('cv'),x=cv.getContext('2d');
-var logo=new Image(),portrait=null,fields=['name','hid','age','gender','height','job','memory','t1','t2','t3','bio','author'];
+var logo=new Image(),portrait=null,fields=['look','name','hid','age','gender','height','job','memory','t1','t2','t3','bio','author'];
 
 function $(id){return document.getElementById(id)}
 function val(id){return $(id).value.trim()}
@@ -197,6 +200,10 @@ function draw(){
     var z=+$('zoom').value,s=Math.max(PW/portrait.width,PH/portrait.height)*z,w=portrait.width*s,h=portrait.height*s;
     var dx=PX+(PW-w)/2+(+$('ox').value)*(w-PW)/2*-1,dy=PY+(PH-h)/2+(+$('oy').value)*(h-PH)/2*-1;
     x.save();x.beginPath();x.rect(PX,PY,PW,PH);x.clip();x.drawImage(portrait,dx,dy,w,h);x.restore();
+  }else if(val('look')){
+    x.fillStyle=t.pFg;x.font=font(400,20,MONO);x.letterSpacing='3px';x.fillText('外觀',PX+36,PY+64);x.letterSpacing='0px';
+    x.fillStyle=t.panelFg;x.font=font(600,30,SERIF);
+    wrap(val('look'),PW-72,14).forEach(function(l,n){x.fillText(l,PX+36,PY+124+n*46)});
   }else{
     x.fillStyle=t.pFg;x.font=font(400,24,MONO);x.textAlign='center';x.fillText('[ 角色立繪 ]',PX+PW/2,PY+PH/2);x.textAlign='left';
   }
@@ -255,7 +262,7 @@ function draw(){
   // footer
   x.fillStyle=t.ink;x.font=font(400,20,MONO);x.letterSpacing='2px';
   x.fillText('#解憂者有限公司',64,1376);x.textAlign='right';x.fillText(or(val('author'),''),1016,1376);x.textAlign='left';x.letterSpacing='0px';
-  $('memC').textContent=$('memory').value.length+' / 40';$('bioC').textContent=$('bio').value.length+' / 90';
+  $('lookC').textContent=$('look').value.length+' / 160';$('memC').textContent=$('memory').value.length+' / 40';$('bioC').textContent=$('bio').value.length+' / 90';
 }
 
 var pending=false;
@@ -263,7 +270,7 @@ function render(){
   if(pending)return;pending=true;
   requestAnimationFrame(function(){
     pending=false;
-    var txt=fields.map(val).join('')+'[]角色姓名立繪年齡性別身高職業記憶存款狀態富裕普通拮据負債性格一二三最珍惜絕不出售的一句話描述這段簡介兩到行介紹背景與目前處境解憂者有限公司卡員工執法社會秩序局一般市民反抗訊號已截獲未連線#…・';
+    var txt=fields.map(val).join('')+'外觀[]角色姓名立繪年齡性別身高職業記憶存款狀態富裕普通拮据負債性格一二三最珍惜絕不出售的一句話描述這段簡介兩到行介紹背景與目前處境解憂者有限公司卡員工執法社會秩序局一般市民反抗訊號已截獲未連線#…・';
     var loads=[font(900,76,'"Noto Serif TC"'),font(600,32,'"Noto Serif TC"'),font(400,26,'"Noto Sans TC"'),font(500,30,'"Noto Sans TC"'),font(400,22,'"IBM Plex Mono"')].map(function(f){
       try{return document.fonts.load(f,txt)}catch(e){return Promise.resolve()}});
     Promise.all(loads).catch(function(){}).then(draw);
@@ -286,6 +293,7 @@ function load(){
 $('f').addEventListener('input',function(){save();render()});
 $('f').addEventListener('change',function(){save();render()});
 $('f').addEventListener('submit',function(e){e.preventDefault()});
+$('clearImg').onclick=function(){portrait=null;$('img').value='';render()};
 $('genId').onclick=function(){$('hid').value=genId();save();render()};
 $('img').onchange=function(){
   var file=this.files&&this.files[0];if(!file)return;
