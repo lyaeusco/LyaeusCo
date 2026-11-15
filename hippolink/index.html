@@ -475,6 +475,7 @@ const CARD = (function(){
     cur = charId;
     card = card || {};
     FIELDS.forEach(function(k){ $(k).value = card[k] ?? '' });
+      if(!card.name && slot) $('name').value = slot.name;
     if(!$('hid').value) $('hid').value = genId();
     var fac = slot ? slot.faction : 'employee';
     var f = document.querySelector('input[name="faction"][value="'+fac+'"]'); if(f) f.checked = true;
