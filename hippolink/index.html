@@ -242,7 +242,7 @@ async function doLogin(){
   if(!code){ $('loginErr').textContent = '請輸入序號'; return; }
   $('loginBtn').disabled = true;
   // 先兌換（已兌換過的序號會失敗，但不影響，所以不檢查結果）
-  await call('redeem-code', {code});
+  await call('claim-code', {code});
   const r = await call('get-state', {code});
   $('loginBtn').disabled = false;
   if(!r.ok){ $('loginErr').textContent = r.data.error || '登入失敗'; return; }
