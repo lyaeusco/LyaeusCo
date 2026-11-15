@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HippoLink 管理</title>
+<style>
+  :root{--bg:#0f1318;--panel:#171d25;--line:#2a3440;--fg:#efe8f1;--muted:#8e9aa7;--accent:#e089ac;--ok:#9fd4a8;--warn:#e9c46a;--bad:#e27d7d}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.6 "Noto Sans TC","PingFang TC",sans-serif;padding:16px;padding-bottom:40px}
+  .wrap{max-width:560px;margin:0 auto;display:flex;flex-direction:column;gap:16px}
+  h1{font-size:20px;margin:0}
+  h2{font-size:16px;margin:0}
+  .panel{background:var(--panel);border:1px solid var(--line);padding:16px;display:flex;flex-direction:column;gap:12px}
+  .note{color:var(--muted);font-size:13px;margin:0}
+  input{width:100%;background:#1d2530;border:1px solid var(--line);color:var(--fg);padding:10px 12px;font:inherit}
+  button{background:var(--accent);color:#1a1014;border:0;padding:10px 16px;font-weight:700;cursor:pointer}
+  button:disabled{opacity:.6;cursor:default}
+  .row{display:flex;justify-content:space-between;align-items:center;gap:12px;border-bottom:1px solid var(--line);padding:10px 0;flex-wrap:wrap}
+  .row:last-child{border-bottom:0}
+  .fn{font-family:ui-monospace,Menlo,monospace;font-size:14px}
+  .st{font-size:13px}
+  .ok{color:var(--ok)} .warn{color:var(--warn)} .bad{color:var(--bad)}
+  .err{color:var(--warn);font-size:13px;min-height:1.2em;margin:0}
+  [hidden]{display:none!important}
+</style>
+</head>
+<body>
+<main class="wrap">
+  <h1>HippoLink 管理</h1>
+
+  <section id="login" class="panel">
+    <p class="note">請輸入你的管理者序號。只在自己的裝置上登入，不要把這個網址公開轉貼。</p>
+    <input id="code" type="text" autocomplete="off" autocapitalize="characters" placeholder="管理者序號">
+    <p class="err" id="loginErr" role="alert"></p>
+    <button id="loginBtn" onclick="login()">登入</button>
+  </section>
+
+  <section id="app" class="wrap" hidden>
+    <div class="panel">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <h2>系統健康檢查</h2>
+        <button id="checkBtn" onclick="checkAll()">檢查全部</button>
+      </div>
+      <p class="note">先測預檢（OPTIONS），再測實際呼叫（POST）。預檢應為 204，實際呼叫回傳任何數字都代表函式有在運作。</p>
+      <div id="list"></div>
+    </div>
+    <div style="text-align:center"><button onclick="logout()" style="background:transparent;color:var(--muted);border:1px solid var(--line)">登出</button></div>
+  </section>
+</main>
+
+<script>
+const API = 'https://tpmzbscqerteskakwfpd.supabase.co/functions/v1/';
+const KEY = 'sb_publishable_jO7lG-qxUbq1t2bK5R23Fw_u7zVMivM';
+const LS = 'lyaeus.admin.v1';
+const FNS = ['admin', 'get-state', 'submit', 'save-card', 'redeem-code'];
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+async function api(fn, method, body){
+  try{
+    const opt = { method, headers: { apikey: KEY, Authorization: 'Bearer ' + KEY, 'content-type': 'application/json' } };
+    if(body !== undefined) opt.body = JSON.stringify(body);
+    const r = await fetch(API + fn, opt);
+    let j = {}; try{ j = await r.json(); }catch(e){}
+    return { ok: r.ok, status: r.status, data: j };
+  }catch(e){
+    return { ok: false, status: 0, data: { error: e.message } };
+  }
+}
+
+async function login(){
+  const code = $('code').value.trim();
+  $('loginErr').textContent = '';
+  if(!code){ $('loginErr').textContent = '請輸入序號'; return; }
+  $('loginBtn').disabled = true;
+  const r = await api('admin', 'POST', { code, action: 'whoami' });
+  $('loginBtn').disabled = false;
+  if(!r.ok){ $('loginErr').textContent = r.data.error || ('登入失敗（' + r.status + '）'); return; }
+  try{ localStorage.setItem(LS, code); }catch(e){}
+  $('code').value = '';
+  show();
+}
+function show(){
+  $('login').hidden = true;
+  $('app').hidden = false;
+  checkAll();
+}
+function logout(){
+  try{ localStorage.removeItem(LS); }catch(e){}
+  $('app').hidden = true;
+  $('login').hidden = false;
+}
+
+function label(status){
+  if(status === 0) return ['連不上（CORS 或函式啟動失敗）', 'bad'];
+  if(status === 204 || status === 200) return ['正常', 'ok'];
+  if(status === 404) return ['函式不存在，請確認名稱', 'bad'];
+  if(status >= 500) return ['函式內部錯誤，請看 Logs', 'bad'];
+  return ['有回應（' + status + '）', 'ok'];
+}
+
+async function checkAll(){
+  const list = $('list');
+  $('checkBtn').disabled = true;
+  list.innerHTML = '<p class="note">檢查中…</p>';
+  let html = '';
+  for(const fn of FNS){
+    const pre = await api(fn, 'OPTIONS');
+    const post = await api(fn, 'POST', {});
+    const [preText, preCls] = label(pre.status === 204 ? 204 : pre.status);
+    const [postText, postCls] = label(post.status);
+    const msg = post.data && post.data.error ? post.data.error : '';
+    html += `
+      <div class="row">
+        <span class="fn">${esc(fn)}</span>
+        <span class="st">預檢：<span class="${preCls}">${esc(preText)}</span>　實際：<span class="${postCls}">${esc(postText)}</span></span>
+        ${msg ? `<span class="note" style="width:100%">回應：${esc(msg)}</span>` : ''}
+      </div>`;
+  }
+  list.innerHTML = html;
+  $('checkBtn').disabled = false;
+}
+
+(function boot(){
+  let saved = null;
+  try{ saved = localStorage.getItem(LS); }catch(e){}
+  if(saved){ $('code').value = saved; login(); }
+})();
+</script>
+</body>
+</html>
