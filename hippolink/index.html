@@ -1,0 +1,556 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<title>解憂者 HippoLink 終端</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@600;900&family=Noto+Sans+TC:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* layout: one phone column; two bottom tabs (公告 / 角色卡); dark ground with the company's pink accent */
+:root{
+  --bg:#0f1318; --panel:#171d25; --panel2:#1d2530; --line:#2a3440;
+  --fg:#efe8f1; --muted:#8e9aa7; --accent:#e089ac; --accent-ink:#1a1014;
+  --ok:#9fd4a8; --warn:#e9c46a;
+  --serif:'Noto Serif TC',serif; --sans:'Noto Sans TC','PingFang TC',sans-serif; --mono:'IBM Plex Mono',monospace;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.6 var(--sans);
+  padding-block:16px 104px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));}
+img{max-width:100%;display:block}
+button,input,textarea{font:inherit;color:inherit}
+[hidden]{display:none!important}
+h1,h2,h3{font-family:var(--serif);font-weight:900;line-height:1.2;margin:0;text-wrap:balance}
+.mono{font-family:var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--muted);font-size:12px}
+.wrap{max-width:460px;margin:0 auto;display:flex;flex-direction:column;gap:16px}
+.top{position:sticky;top:env(safe-area-inset-top,0px);background:var(--bg);padding-block:8px;z-index:5;display:flex;justify-content:space-between;align-items:center;gap:12px;border-bottom:1px solid var(--line)}
+.brand{display:flex;flex-direction:column;gap:2px;min-width:0}
+.brand h1{font-size:20px}
+.badge{border:1px solid var(--warn);color:var(--warn);font-family:var(--mono);font-size:11px;padding:2px 6px;letter-spacing:.08em}
+.panel{background:var(--panel);border:1px solid var(--line);padding:16px;display:flex;flex-direction:column;gap:12px;min-width:0}
+.panel.quiet{background:transparent;border:0;padding:0}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.chip{background:transparent;border:1px solid var(--line);padding:8px 14px;cursor:pointer;min-width:0}
+.chip[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:700}
+.btn{background:var(--accent);color:var(--accent-ink);border:0;padding:10px 16px;font-weight:700;cursor:pointer}
+.btn.ghost{background:transparent;color:var(--fg);border:1px solid var(--line);font-weight:500}
+.btn:disabled{opacity:.6;cursor:default}
+.btn:focus-visible,.chip:focus-visible,.tab:focus-visible,input:focus-visible,textarea:focus-visible,.opt:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+input[type=text],textarea{width:100%;background:var(--panel2);border:1px solid var(--line);padding:10px 12px;min-width:0}
+.field{display:flex;flex-direction:column;gap:6px}
+.tag{font-family:var(--mono);font-size:11px;letter-spacing:.08em;padding:1px 6px;border:1px solid var(--line);color:var(--muted);white-space:nowrap}
+.note{color:var(--muted);font-size:13px;margin:0}
+.err{color:var(--warn);font-size:13px;min-height:1.2em;margin:0}
+.ok{color:var(--ok);font-size:14px;margin:0}
+.item{border-left:2px solid var(--accent);padding:4px 0 4px 12px;display:flex;flex-direction:column;gap:6px;min-width:0}
+.item.ivt{border-left-color:var(--warn)}
+.item time{color:var(--muted);font-family:var(--mono);font-size:12px}
+.opt{text-align:left;width:100%;background:transparent;border:1px solid var(--line);padding:10px 12px;cursor:pointer}
+.opt[aria-checked="true"]{border-color:var(--accent);background:rgba(224,137,172,.12)}
+.opt:disabled{cursor:default;opacity:.85}
+.dock{position:fixed;left:0;right:0;bottom:env(safe-area-inset-bottom,0px);background:var(--panel);border-top:1px solid var(--line);display:flex;justify-content:space-around;padding:6px max(8px,env(safe-area-inset-left,0px)) 6px max(8px,env(safe-area-inset-right,0px))}
+.tab{background:none;border:0;color:var(--muted);padding:8px 10px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:2px;min-width:0;font-size:13px;flex:1}
+.tab[aria-selected="true"]{color:var(--accent);font-weight:700}
+.sep{height:1px;background:var(--line)}
+
+/* ===== 角色卡（限定在 #v-card 內） ===== */
+#v-card{
+  --panel:#1b181e;--panel2:#241f27;--fg:#efe8f1;--muted:#a59aa9;--line:#332c36;--accent:#e08aad;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+  display:flex;flex-direction:column;gap:20px;color:var(--fg);
+}
+#v-card canvas{width:100%;max-width:100%;aspect-ratio:3/4;display:block;background:#000}
+#v-card .actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
+#v-card .btn{background:var(--accent);color:#1a0d13;border:0;padding:11px 18px;cursor:pointer;font-weight:500}
+#v-card .btn.ghost{background:none;color:var(--fg);border:1px solid var(--line)}
+#v-card .hint{font-size:.8rem;color:var(--muted);margin:0}
+#v-card form{display:flex;flex-direction:column;gap:20px;min-width:0}
+#v-card fieldset{border:1px solid var(--line);padding:16px;margin:0;display:flex;flex-direction:column;gap:12px;background:var(--panel);min-width:0}
+#v-card legend{font-family:var(--mono);font-size:.75rem;letter-spacing:.18em;color:var(--accent);padding:0 6px}
+#v-card label{display:flex;flex-direction:column;gap:4px;font-size:.82rem;color:var(--muted)}
+#v-card input[type=text],#v-card textarea{background:var(--panel2);border:1px solid var(--line);padding:9px 11px;width:100%;color:var(--fg)}
+#v-card textarea{resize:vertical;min-height:4.5em}
+#v-card input[type=range]{width:100%;accent-color:var(--accent)}
+#v-card input[type=file]{color:var(--muted);font-size:.8rem}
+#v-card .row2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+#v-card .row3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+#v-card .seg{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
+#v-card .seg4{grid-template-columns:repeat(4,minmax(0,1fr))}
+#v-card .seg input{position:absolute;opacity:0;pointer-events:none}
+#v-card .seg label{display:block;text-align:center;border:1px solid var(--line);padding:9px 4px;cursor:pointer;color:var(--fg);font-size:.88rem;position:relative}
+#v-card .seg label:has(input:checked){border-color:var(--accent);background:var(--accent);color:#1a0d13;font-weight:500}
+#v-card .seg label:has(input:disabled){opacity:.7;cursor:default}
+#v-card .seg label:has(input:focus-visible){outline:2px solid var(--accent);outline-offset:2px}
+#v-card .sw{display:inline-block;width:10px;height:10px;margin-right:6px;vertical-align:middle;border:1px solid rgba(255,255,255,.3)}
+#v-card .inline{display:flex;gap:8px;align-items:flex-end}
+#v-card .inline label{flex:1;min-width:0}
+#v-card .count{font-family:var(--mono);font-size:.72rem;color:var(--muted);align-self:flex-end}
+#v-card #out{margin-top:16px}
+#v-card #out img{width:100%;display:block;border:1px solid var(--line)}
+#v-card #saveMsg{font-size:.85rem;color:var(--muted);min-height:1.2em;margin:0}
+</style>
+
+<!-- ============ 登入 ============ -->
+<main id="login" class="wrap">
+  <div class="top" style="border:0;padding-inline:0">
+    <div class="brand"><span class="mono">HippoLink · 解憂者有限公司</span><h1>終端登入</h1></div>
+    <span class="badge">原型</span>
+  </div>
+  <section class="panel">
+    <p class="note">請輸入你的 HippoLink 植入序號。序號由管理者私下發給你，請勿截圖或公開貼出。</p>
+    <div class="field">
+      <label for="code" class="mono">植入序號</label>
+      <input id="code" type="text" autocomplete="off" autocapitalize="characters" placeholder="HL-XXXX-XXXX-XXXX">
+    </div>
+    <p class="err" id="loginErr" role="alert"></p>
+    <button class="btn" id="loginBtn" onclick="doLogin()">登入</button>
+  </section>
+</main>
+
+<!-- ============ 主畫面 ============ -->
+<main id="app" class="wrap" hidden>
+  <header class="top">
+    <div class="brand">
+      <span class="mono" id="whoPlayer">HippoLink</span>
+      <h1 id="whoName">—</h1>
+    </div>
+    <button class="btn ghost" onclick="logout()">登出</button>
+  </header>
+
+  <nav class="row" aria-label="切換身分" id="slots"></nav>
+
+  <section id="v-news" class="wrap" role="tabpanel"></section>
+
+  <section id="v-card" role="tabpanel" hidden>
+    <div class="preview">
+      <canvas id="cv" width="1080" height="1440" aria-label="角色卡預覽"></canvas>
+      <div class="actions">
+        <button class="btn" type="button" id="dl">產生圖片</button>
+        <button class="btn ghost" type="button" id="reset">清空重填</button>
+      </div>
+      <p class="hint">輸出尺寸 1080 × 1440，可直接發到 IG 或 Discord。產生後長按圖片即可儲存。</p>
+      <p class="err" id="dlMsg"></p>
+      <div id="out" hidden><img id="outImg" alt="產生的角色卡圖片"></div>
+    </div>
+
+    <p id="saveMsg"></p>
+
+    <form id="f" autocomplete="off">
+      <fieldset>
+        <legend>陣營（由管理者設定）</legend>
+        <div class="seg">
+          <label><input type="radio" name="faction" value="employee" id="fa1" disabled><span class="sw" style="background:#e08aad"></span>解憂者員工</label>
+          <label><input type="radio" name="faction" value="enforcer" id="fa2" disabled><span class="sw" style="background:#146dda"></span>執法者</label>
+          <label><input type="radio" name="faction" value="citizen" id="fa3" disabled><span class="sw" style="background:#241f27"></span>一般市民</label>
+          <label><input type="radio" name="faction" value="rebel" id="fa4" disabled><span class="sw" style="background:#d9ff3f"></span>反抗者</label>
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>立繪</legend>
+        <label>上傳圖片<input type="file" id="img" accept="image/*"></label>
+        <div class="row3">
+          <label>縮放<input type="range" id="zoom" min="1" max="3" step="0.01" value="1"></label>
+          <label>左右<input type="range" id="ox" min="-1" max="1" step="0.01" value="0"></label>
+          <label>上下<input type="range" id="oy" min="-1" max="1" step="0.01" value="0"></label>
+        </div>
+        <p class="hint" style="margin:0">立繪目前只存在你的瀏覽器裡，不會上傳到伺服器。</p>
+        <label>或用文字描述外觀<textarea id="look" maxlength="160" placeholder="沒有立繪時，這段文字會顯示在立繪區。"></textarea></label>
+        <span class="count" id="lookC"></span>
+        <button class="btn ghost" type="button" id="clearImg" style="align-self:flex-start">移除圖片，改用文字</button>
+      </fieldset>
+
+      <fieldset>
+        <legend>基本資料</legend>
+        <label>角色姓名<input type="text" id="name" maxlength="16" placeholder="例如：林予晴"></label>
+        <div class="inline">
+          <label>HippoLink ID<input type="text" id="hid" maxlength="16"></label>
+          <button class="btn ghost" type="button" id="genId">隨機</button>
+        </div>
+        <div class="row2">
+          <label>年齡<input type="text" id="age" maxlength="10"></label>
+          <label>性別<input type="text" id="gender" maxlength="10"></label>
+          <label>身高<input type="text" id="height" maxlength="10"></label>
+          <label>職業<input type="text" id="job" maxlength="12"></label>
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>記憶</legend>
+        <span style="font-size:.82rem;color:var(--muted)">記憶存款狀態</span>
+        <div class="seg seg4">
+          <label><input type="radio" name="deposit" value="0" id="dp0">富裕</label>
+          <label><input type="radio" name="deposit" value="1" id="dp1">普通</label>
+          <label><input type="radio" name="deposit" value="2" id="dp2">拮據</label>
+          <label><input type="radio" name="deposit" value="3" id="dp3">負債</label>
+        </div>
+        <label>最珍惜、絕不出售的記憶<textarea id="memory" maxlength="40" placeholder="一句話描述這段記憶"></textarea></label>
+        <span class="count" id="memC"></span>
+      </fieldset>
+
+      <fieldset>
+        <legend>個性</legend>
+        <div class="row3">
+          <label>性格一<input type="text" id="t1" maxlength="6"></label>
+          <label>性格二<input type="text" id="t2" maxlength="6"></label>
+          <label>性格三<input type="text" id="t3" maxlength="6"></label>
+        </div>
+        <label>角色簡介<textarea id="bio" maxlength="90" placeholder="兩到三行，介紹角色的背景與目前的處境"></textarea></label>
+        <span class="count" id="bioC"></span>
+        <label>繪師／作者<input type="text" id="author" maxlength="20" placeholder="例如：@your_id"></label>
+      </fieldset>
+    </form>
+  </section>
+</main>
+
+<nav class="dock" id="dock" hidden aria-label="主選單">
+  <button class="tab" role="tab" data-tab="news" aria-selected="true" onclick="go('news')"><span>◎</span>公告</button>
+  <button class="tab" role="tab" data-tab="card" aria-selected="false" onclick="go('card')"><span>▣</span>角色卡</button>
+</nav>
+
+<script>
+/* ===== 後端設定（前端可用的公開金鑰） ===== */
+const API = 'https://tpmzbscqerteskakwfpd.supabase.co/functions/v1/';
+const KEY = 'sb_publishable_jO7lG-qxUbq1t2bK5R23Fw_u7zVMivM';
+const LS_KEY = 'lyaeus.code.v1';
+
+/* ===== 狀態 ===== */
+const S = {code:null, data:null, active:null, tab:'news', pending:{}};
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+/* ===== 呼叫後端 ===== */
+async function call(fn, body){
+  try{
+    const r = await fetch(API + fn, {
+      method:'POST',
+      headers:{apikey:KEY, Authorization:'Bearer '+KEY, 'content-type':'application/json'},
+      body:JSON.stringify(body)
+    });
+    let j = {}; try{ j = await r.json(); }catch(e){}
+    return {ok:r.ok, status:r.status, data:j};
+  }catch(e){
+    return {ok:false, status:0, data:{error:'網路連線失敗，請稍後再試'}};
+  }
+}
+
+/* ===== 登入與載入 ===== */
+async function doLogin(){
+  const code = $('code').value.trim();
+  $('loginErr').textContent = '';
+  if(!code){ $('loginErr').textContent = '請輸入序號'; return; }
+  $('loginBtn').disabled = true;
+  const r = await call('get-state', {code});
+  $('loginBtn').disabled = false;
+  if(!r.ok){ $('loginErr').textContent = r.data.error || '登入失敗'; return; }
+  S.code = code;
+  try{ localStorage.setItem(LS_KEY, code); }catch(e){}
+  $('code').value = '';
+  enter(r.data);
+}
+function enter(d){
+  S.data = d; S.active = d.active_character_id;
+  $('login').hidden = true; $('app').hidden = false; $('dock').hidden = false;
+  CARD.load(d.card, slotOf(S.active), S.active);
+  go('news');
+}
+async function fetchState(charId, reloadCard){
+  const r = await call('get-state', {code:S.code, character_id:charId});
+  if(!r.ok){
+    if(r.status === 401){ logout(); $('loginErr').textContent = '序號已失效，請聯絡管理者'; }
+    else showToast(r.data.error || '載入失敗');
+    return false;
+  }
+  S.data = r.data;
+  S.active = r.data.active_character_id;
+  if(reloadCard) CARD.load(r.data.card, slotOf(S.active), S.active);
+  return true;
+}
+function slotOf(charId){
+  const s = (S.data?.slots ?? []).find(x => x.characters.id === charId);
+  return s ? s.characters : null;
+}
+function logout(){
+  S.code = null; S.data = null; S.active = null;
+  try{ localStorage.removeItem(LS_KEY); }catch(e){}
+  $('app').hidden = true; $('dock').hidden = true; $('login').hidden = false;
+}
+function showToast(msg){ $('saveMsg').textContent = msg; }
+
+/* ===== 身分與分頁 ===== */
+async function switchTo(id){
+  if(id === S.active) return;
+  if(await fetchState(id, true)) renderAll();
+}
+function go(tab){
+  S.tab = tab;
+  $('v-news').hidden = tab !== 'news';
+  $('v-card').hidden = tab !== 'card';
+  document.querySelectorAll('.tab').forEach(b => b.setAttribute('aria-selected', b.dataset.tab === tab));
+  renderAll();
+  window.scrollTo(0,0);
+}
+function renderAll(){
+  const c = slotOf(S.active);
+  $('whoPlayer').textContent = '目前身分';
+  $('whoName').textContent = c ? c.name : '—';
+  $('slots').innerHTML = S.data.slots.map(s =>
+    `<button class="chip" aria-pressed="${s.characters.id===S.active}" onclick="switchTo('${s.characters.id}')">${esc(s.characters.name)}</button>`
+  ).join('');
+  renderNews();
+}
+
+/* ===== 公告區：公告、解謎、投票（資料來自後端） ===== */
+function renderNews(){
+  const items = S.data.items ?? [];
+  $('v-news').innerHTML = `
+    <div class="panel quiet"><h2>公告</h2>
+      <p class="note">只顯示你目前身分可以看到的內容。解謎與投票都是各自的，互動內容會同步發到 Discord 頻道。</p></div>
+    ${items.map(it => {
+      if(it.kind === 'announcement') return `
+        <article class="item">
+          <time>${new Date(it.publish_at).toLocaleString('zh-TW')}</time>
+          <h3 style="font-size:18px">${esc(it.title)}</h3>
+          <p class="note" style="font-size:15px">${esc(it.body)}</p>
+        </article>`;
+      if(it.kind === 'puzzle') return `
+        <article class="item ivt">
+          <time>解謎</time>
+          <h3 style="font-size:18px">${esc(it.title)}</h3>
+          <p style="margin:0">${esc(it.payload?.q)}</p>
+          ${it.solved ? `<p class="ok">✓ 這一題已由你的角色解開。</p>` : `
+            <div class="field"><label for="ans_${it.id}" class="mono">你的答案</label>
+              <input id="ans_${it.id}" type="text" maxlength="30" autocomplete="off"></div>
+            <div class="row"><button class="btn" onclick="solve('${it.id}')">送出</button></div>
+            <p class="err" id="err_${it.id}" role="status"></p>
+            ${it.hint ? `<p class="note">提示：${esc(it.hint)}</p>` : ''}`}
+        </article>`;
+      if(it.kind === 'vote') return `
+        <article class="item ivt">
+          <time>投票</time>
+          <h3 style="font-size:18px">${esc(it.title)}</h3>
+          <p class="note" style="font-size:14px">${esc(it.payload?.q)}</p>
+          <div role="radiogroup" aria-label="${esc(it.title)}" style="display:flex;flex-direction:column;gap:8px">
+            ${(it.payload?.options ?? []).map(o => `
+              <button class="opt" role="radio" aria-checked="${it.voted===o}" ${it.voted?'disabled':''} onclick="vote('${it.id}','${esc(o)}')">${esc(o)}</button>`).join('')}
+          </div>
+          <p class="err" id="verr_${it.id}" role="status"></p>
+          <p class="note">${it.voted ? '✓ 此角色已投票，結果稍後公布。' : '選擇後即送出，送出後無法更改。'}</p>
+        </article>`;
+      return '';
+    }).join('') || '<p class="note">目前沒有新的公告。</p>'}`;
+}
+async function solve(itemId){
+  const input = $('ans_'+itemId);
+  const answer = input.value.trim();
+  if(!answer) return;
+  const r = await call('submit', {code:S.code, character_id:S.active, announcement_id:itemId, answer});
+  if(!r.ok){ $('err_'+itemId).textContent = r.data.error || '送出失敗'; return; }
+  await fetchState(S.active, false);
+  renderNews();
+  if(!r.data.correct && $('err_'+itemId)) $('err_'+itemId).textContent = '不正確，再想想看。';
+}
+async function vote(itemId, choice){
+  const r = await call('submit', {code:S.code, character_id:S.active, announcement_id:itemId, choice});
+  if(!r.ok){
+    await fetchState(S.active, false);
+    renderNews();
+    if($('verr_'+itemId)) $('verr_'+itemId).textContent = r.data.error || '投票失敗';
+    return;
+  }
+  await fetchState(S.active, false);
+  renderNews();
+}
+
+/* ===== 角色卡：產生器（資料來自後端，儲存時會寫回後端） ===== */
+const CARD = (function(){
+  var TH={
+    employee:{bg:'#e08aad',ink:'#121014',muted:'#121014',line:'#121014',panel:'#121014',panelFg:'#efe8f1',panelAcc:'#e08aad',chipBg:'#121014',chipFg:'#e08aad',pBg:'#121014',pFg:'#6f6573',label:'解憂者員工',num:'FACTION 01',head:'解憂者有限公司 · 角色卡'},
+    enforcer:{bg:'#146dda',ink:'#f4f8fd',muted:'#f4f8fd',line:'#f4f8fd',panel:'#0d1b2e',panelFg:'#f4f8fd',panelAcc:'#7fb2f0',chipBg:'#f4f8fd',chipFg:'#0d4fa3',pBg:'#0d1b2e',pFg:'#7f97b5',label:'執法者・社會秩序局',num:'FACTION 02',head:'解憂者有限公司 · 角色卡'},
+    citizen:{bg:'#241f27',ink:'#efe8f1',muted:'#c9bfcc',line:'#5a4f5e',panel:'#121014',panelFg:'#efe8f1',panelAcc:'#c9bfcc',chipBg:'#efe8f1',chipFg:'#241f27',pBg:'#121014',pFg:'#6f6573',label:'一般市民',num:'FACTION 03',head:'解憂者有限公司 · 角色卡'},
+    rebel:{bg:'#d9ff3f',ink:'#0e0d0f',muted:'#0e0d0f',line:'#0e0d0f',panel:'#0e0d0f',panelFg:'#efe8f1',panelAcc:'#d9ff3f',chipBg:'#0e0d0f',chipFg:'#d9ff3f',pBg:'#0e0d0f',pFg:'#6b7a2a',label:'反抗者',num:'FACTION 04',head:'// 訊號已截獲 · 角色卡'}
+  };
+  var DEP=['富裕','普通','拮據','負債'];
+  var FIELDS=['look','name','hid','age','gender','height','job','memory','t1','t2','t3','bio','author'];
+  var SERIF='"Noto Serif TC","Songti TC",serif', SANS='"Noto Sans TC","PingFang TC","Microsoft JhengHei",sans-serif', MONO='"IBM Plex Mono",ui-monospace,Menlo,monospace';
+  var cv=$('cv'), x=cv.getContext('2d');
+  var logo=new Image(); logo.onload=function(){draw()}; logo.src='logo.png';
+  var portraits={}, cur=null, portrait=null, pstate={}, saveTimer=null;
+
+  function radio(n){var r=document.querySelector('input[name="'+n+'"]:checked');return r?r.value:null}
+  function val(id){return $(id).value.trim()}
+  function or(v,p){return v||p}
+  function font(w,s,f){return w+' '+s+'px '+f}
+  function genId(){function d(){return String(Math.floor(Math.random()*10000)).padStart(4,'0')}return 'LY-'+d()+'-'+d()}
+  function tinted(img,color,w,h){
+    var c=document.createElement('canvas');c.width=w;c.height=h;var g=c.getContext('2d');
+    g.drawImage(img,0,0,w,h);g.globalCompositeOperation='source-in';g.fillStyle=color;g.fillRect(0,0,w,h);return c;
+  }
+  function wrap(text,maxW,maxLines){
+    var lines=[],cur='';
+    for(var i=0;i<text.length;i++){
+      var ch=text[i];
+      if(ch==='\n'){lines.push(cur);cur='';continue}
+      if(x.measureText(cur+ch).width>maxW&&cur){lines.push(cur);cur=ch}else cur+=ch;
+    }
+    if(cur)lines.push(cur);
+    if(lines.length>maxLines){lines=lines.slice(0,maxLines);var l=lines[maxLines-1];while(l&&x.measureText(l+'…').width>maxW)l=l.slice(0,-1);lines[maxLines-1]=l+'…'}
+    return lines;
+  }
+
+  function draw(){
+    var t=TH[radio('faction')]||TH.employee, dep=+radio('deposit');
+    x.textBaseline='alphabetic';x.textAlign='left';
+    x.fillStyle=t.bg;x.fillRect(0,0,1080,1440);
+    if(logo.complete&&logo.naturalWidth)x.drawImage(tinted(logo,t.ink,52,41),64,64);
+    x.fillStyle=t.ink;x.font=font(400,22,MONO);
+    x.letterSpacing='4px';x.fillText(t.head,130,94);
+    x.textAlign='right';x.letterSpacing='2px';x.fillText(t.num,1016,94);x.textAlign='left';x.letterSpacing='0px';
+    var PX=64,PY=140,PW=440,PH=760;
+    x.fillStyle=t.pBg;x.fillRect(PX,PY,PW,PH);
+    if(portrait){
+      var z=+$('zoom').value, s=Math.max(PW/portrait.width,PH/portrait.height)*z, w=portrait.width*s, h=portrait.height*s;
+      var dx=PX+(PW-w)/2-(+$('ox').value)*(w-PW)/2, dy=PY+(PH-h)/2-(+$('oy').value)*(h-PH)/2;
+      x.save();x.beginPath();x.rect(PX,PY,PW,PH);x.clip();x.drawImage(portrait,dx,dy,w,h);x.restore();
+    }else if(val('look')){
+      x.fillStyle=t.pFg;x.font=font(400,20,MONO);x.letterSpacing='3px';x.fillText('外觀',PX+36,PY+64);x.letterSpacing='0px';
+      x.fillStyle=t.panelFg;x.font=font(600,30,SERIF);
+      wrap(val('look'),PW-72,14).forEach(function(l,n){x.fillText(l,PX+36,PY+124+n*46)});
+    }else{
+      x.fillStyle=t.pFg;x.font=font(400,24,MONO);x.textAlign='center';x.fillText('[ 角色立繪 ]',PX+PW/2,PY+PH/2);x.textAlign='left';
+    }
+    var RX=536,RW=480,y=140;
+    x.font=font(500,24,SANS);var lw=x.measureText(t.label).width+32;
+    x.fillStyle=t.chipBg;x.fillRect(RX,y,lw,44);x.fillStyle=t.chipFg;x.fillText(t.label,RX+16,y+31);
+    y+=58;
+    var nm=or(val('name'),'[角色姓名]'), fs=76;x.font=font(900,fs,SERIF);
+    while(x.measureText(nm).width>RW&&fs>40){fs-=2;x.font=font(900,fs,SERIF)}
+    x.fillStyle=t.ink;x.fillText(nm,RX,y+fs);y+=fs+50;
+    x.font=font(400,24,MONO);var idt=or(val('hid'),'LY-0000-0000');
+    x.fillStyle=t.muted;x.fillText('HippoLink ID  '+idt,RX,y);
+    y+=24;
+    x.fillStyle=t.ink;x.fillRect(RX,y,RW,2);
+    var info=[['年齡','age'],['性別','gender'],['身高','height'],['職業','job']];
+    for(var i=0;i<4;i++){
+      var cx=RX+(i%2)*240, cy=y+2+Math.floor(i/2)*92;
+      x.fillStyle=t.muted;x.font=font(400,20,SANS);x.fillText(info[i][0],cx,cy+34);
+      x.fillStyle=t.ink;x.font=font(500,30,SANS);var v=or(val(info[i][1]),'['+info[i][0]+']');
+      while(x.measureText(v).width>226&&v.length>1)v=v.slice(0,-1);
+      x.fillText(v,cx,cy+76);
+      if(i%2===1){x.fillStyle=t.line;x.fillRect(RX,cy+91,RW,1)}
+    }
+    y+=2+184+30;
+    x.fillStyle=t.muted;x.font=font(400,20,SANS);x.fillText('記憶存款狀態',RX,y);y+=16;
+    var cw=(RW-18)/4;x.font=font(400,22,SANS);x.textAlign='center';
+    for(i=0;i<4;i++){
+      var bx=RX+i*(cw+6);
+      if(i===dep){x.fillStyle=t.chipBg;x.fillRect(bx,y,cw,46);x.fillStyle=t.chipFg}
+      else{x.strokeStyle=t.line;x.lineWidth=2;x.strokeRect(bx+1,y+1,cw-2,44);x.fillStyle=t.ink}
+      x.fillText(DEP[i],bx+cw/2,y+31);
+    }
+    x.textAlign='left';y+=46+40;
+    x.fillStyle=t.muted;x.font=font(400,20,SANS);x.fillText('性格',RX,y);y+=16;
+    x.font=font(400,24,SANS);var tx=RX,ty=y;
+    ['t1','t2','t3'].forEach(function(k,n){
+      var s=or(val(k),'[性格'+'一二三'[n]+']'), w=x.measureText(s).width+32;
+      if(tx+w>RX+RW){tx=RX;ty+=54}
+      x.strokeStyle=t.ink;x.lineWidth=2;x.strokeRect(tx+1,ty+1,w-2,44);x.fillStyle=t.ink;x.fillText(s,tx+16,ty+31);tx+=w+8;
+    });
+    var MY=932;x.fillStyle=t.panel;x.fillRect(64,MY,952,176);
+    x.fillStyle=t.panelAcc;x.font=font(400,20,MONO);x.letterSpacing='3px';x.fillText('最珍惜、絕不出售的記憶',96,MY+50);x.letterSpacing='0px';
+    x.fillStyle=t.panelFg;x.font=font(600,32,SERIF);
+    wrap(or(val('memory'),'[一句話描述這段記憶]'),888,2).forEach(function(l,n){x.fillText(l,96,MY+104+n*46)});
+    x.fillStyle=t.ink;x.font=font(400,26,SANS);
+    wrap(or(val('bio'),'[角色簡介：兩到三行，介紹角色的背景與目前的處境。]'),952,4).forEach(function(l,n){x.fillText(l,64,1170+n*44)});
+    x.fillStyle=t.ink;x.font=font(400,20,MONO);x.letterSpacing='2px';
+    x.fillText('#解憂者有限公司',64,1376);x.textAlign='right';x.fillText(or(val('author'),''),1016,1376);x.textAlign='left';x.letterSpacing='0px';
+    $('lookC').textContent=$('look').value.length+' / 160';$('memC').textContent=$('memory').value.length+' / 40';$('bioC').textContent=$('bio').value.length+' / 90';
+  }
+
+  // 把後端的角色卡放進表單（陣營由管理者設定，所以不能改）
+  function load(card, slot, charId){
+    cur = charId;
+    card = card || {};
+    FIELDS.forEach(function(k){ $(k).value = card[k] ?? '' });
+    if(!$('hid').value) $('hid').value = genId();
+    var fac = slot ? slot.faction : 'employee';
+    var f = document.querySelector('input[name="faction"][value="'+fac+'"]'); if(f) f.checked = true;
+    document.querySelectorAll('input[name="faction"]').forEach(function(r){ r.disabled = true });
+    var dep = card.deposit ?? '1';
+    var d = document.querySelector('input[name="deposit"][value="'+dep+'"]'); if(d) d.checked = true;
+    var p = pstate[charId] || {zoom:1, ox:0, oy:0};
+    $('zoom').value = p.zoom; $('ox').value = p.ox; $('oy').value = p.oy;
+    portrait = portraits[charId] || null;
+    draw();
+  }
+  function collect(){
+    var o = {deposit: radio('deposit') || '1'};
+    FIELDS.forEach(function(k){ o[k] = $(k).value });
+    return o;
+  }
+  // 停止輸入 0.8 秒後寫回後端
+  function scheduleSave(){
+    clearTimeout(saveTimer);
+    $('saveMsg').textContent = '儲存中…';
+    saveTimer = setTimeout(save, 800);
+  }
+  async function save(){
+    var r = await call('save-card', {code:S.code, character_id:cur, data:collect()});
+    $('saveMsg').textContent = r.ok ? '已儲存' : (r.data.error || '儲存失敗');
+  }
+  function onChange(){
+    pstate[cur] = {zoom:+$('zoom').value, ox:+$('ox').value, oy:+$('oy').value};
+    draw();
+    scheduleSave();
+  }
+
+  $('f').addEventListener('input', onChange);
+  $('f').addEventListener('change', onChange);
+  $('f').addEventListener('submit', function(e){ e.preventDefault() });
+  $('clearImg').onclick = function(){ portrait = null; delete portraits[cur]; $('img').value=''; draw() };
+  $('genId').onclick = function(){ $('hid').value = genId(); onChange() };
+  $('img').onchange = function(){
+    var file = this.files && this.files[0]; if(!file) return;
+    var r = new FileReader();
+    r.onload = function(){
+      var im = new Image();
+      im.onload = function(){ portraits[cur] = im; portrait = im; $('zoom').value=1; $('ox').value=0; $('oy').value=0; onChange() };
+      im.src = r.result;
+    };
+    r.readAsDataURL(file);
+  };
+  $('reset').onclick = function(){
+    FIELDS.forEach(function(k){ $(k).value = '' });
+    $('hid').value = genId();
+    $('memory').value = ''; delete portraits[cur]; delete pstate[cur];
+    portrait = null; $('img').value=''; $('out').hidden = true;
+    onChange();
+  };
+  $('dl').onclick = function(){
+    draw();
+    $('dlMsg').textContent = '';
+    try{
+      $('outImg').src = cv.toDataURL('image/png');
+      $('out').hidden = false;
+    }catch(e){
+      $('out').hidden = true;
+      $('dlMsg').textContent = '這個頁面無法匯出圖片，請在發布後的連結中操作。';
+    }
+  };
+
+  return {load:load, draw:draw};
+})();
+
+/* ===== 啟動：如果瀏覽器記得序號，就直接登入 ===== */
+(async function boot(){
+  let saved = null;
+  try{ saved = localStorage.getItem(LS_KEY); }catch(e){}
+  if(!saved) return;
+  const r = await call('get-state', {code:saved});
+  if(r.ok){ S.code = saved; enter(r.data); }
+  else { try{ localStorage.removeItem(LS_KEY); }catch(e){} }
+})();
+</script>
+</body>
+</html>
