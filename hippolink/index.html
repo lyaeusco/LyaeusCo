@@ -241,6 +241,8 @@ async function doLogin(){
   $('loginErr').textContent = '';
   if(!code){ $('loginErr').textContent = '請輸入序號'; return; }
   $('loginBtn').disabled = true;
+  // 先兌換（已兌換過的序號會失敗，但不影響，所以不檢查結果）
+  await call('redeem-code', {code});
   const r = await call('get-state', {code});
   $('loginBtn').disabled = false;
   if(!r.ok){ $('loginErr').textContent = r.data.error || '登入失敗'; return; }
@@ -249,34 +251,6 @@ async function doLogin(){
   $('code').value = '';
   enter(r.data);
 }
-function enter(d){
-  S.data = d; S.active = d.active_character_id;
-  $('login').hidden = true; $('app').hidden = false; $('dock').hidden = false;
-  CARD.load(d.card, slotOf(S.active), S.active);
-  go('news');
-}
-async function fetchState(charId, reloadCard){
-  const r = await call('get-state', {code:S.code, character_id:charId});
-  if(!r.ok){
-    if(r.status === 401){ logout(); $('loginErr').textContent = '序號已失效，請聯絡管理者'; }
-    else showToast(r.data.error || '載入失敗');
-    return false;
-  }
-  S.data = r.data;
-  S.active = r.data.active_character_id;
-  if(reloadCard) CARD.load(r.data.card, slotOf(S.active), S.active);
-  return true;
-}
-function slotOf(charId){
-  const s = (S.data?.slots ?? []).find(x => x.characters.id === charId);
-  return s ? s.characters : null;
-}
-function logout(){
-  S.code = null; S.data = null; S.active = null;
-  try{ localStorage.removeItem(LS_KEY); }catch(e){}
-  $('app').hidden = true; $('dock').hidden = true; $('login').hidden = false;
-}
-function showToast(msg){ $('saveMsg').textContent = msg; }
 
 /* ===== 身分與分頁 ===== */
 async function switchTo(id){
