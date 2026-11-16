@@ -4,24 +4,38 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>HippoLink 管理</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.2/marked.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.1.6/purify.min.js"></script>
 <style>
-  :root{--bg:#0f1318;--panel:#171d25;--line:#2a3440;--fg:#efe8f1;--muted:#8e9aa7;--accent:#e089ac;--ok:#9fd4a8;--warn:#e9c46a;--bad:#e27d7d}
+  :root{--bg:#0f1318;--panel:#171d25;--panel2:#1d2530;--line:#2a3440;--fg:#efe8f1;--muted:#8e9aa7;--accent:#e089ac;--ok:#9fd4a8;--warn:#e9c46a;--bad:#e27d7d}
   *{box-sizing:border-box}
-  body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.6 "Noto Sans TC","PingFang TC",sans-serif;padding:16px;padding-bottom:40px}
-  .wrap{max-width:560px;margin:0 auto;display:flex;flex-direction:column;gap:16px}
-  h1{font-size:20px;margin:0}
-  h2{font-size:16px;margin:0}
-  .panel{background:var(--panel);border:1px solid var(--line);padding:16px;display:flex;flex-direction:column;gap:12px}
+  body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.6 "Noto Sans TC","PingFang TC",sans-serif;padding:16px 16px 48px}
+  .wrap{max-width:620px;margin:0 auto;display:flex;flex-direction:column;gap:16px}
+  h1{font-size:20px;margin:0} h2{font-size:16px;margin:0}
+  .panel{background:var(--panel);border:1px solid var(--line);padding:16px;display:flex;flex-direction:column;gap:12px;min-width:0}
   .note{color:var(--muted);font-size:13px;margin:0}
-  input{width:100%;background:#1d2530;border:1px solid var(--line);color:var(--fg);padding:10px 12px;font:inherit}
-  button{background:var(--accent);color:#1a1014;border:0;padding:10px 16px;font-weight:700;cursor:pointer}
-  button:disabled{opacity:.6;cursor:default}
+  .msg{font-size:13px;min-height:1.2em;margin:0;color:var(--warn)} .msg.ok{color:var(--ok)}
+  input,textarea,select{width:100%;background:var(--panel2);border:1px solid var(--line);color:var(--fg);padding:9px 11px;font:inherit;min-width:0}
+  textarea{min-height:90px;resize:vertical}
+  label{display:flex;flex-direction:column;gap:5px;font-size:13px;color:var(--muted);min-width:0}
+  button{background:var(--accent);color:#1a1014;border:0;padding:9px 14px;font-weight:700;cursor:pointer}
+  button.ghost{background:transparent;color:var(--fg);border:1px solid var(--line);font-weight:500}
+  button.danger{background:transparent;color:var(--bad);border:1px solid var(--bad);font-weight:500}
+  button:disabled{opacity:.5;cursor:default}
+  .tabs{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  .tabs button{background:transparent;color:var(--muted);border:1px solid var(--line);font-weight:500}
+  .tabs button[aria-pressed="true"]{background:var(--accent);color:#1a1014;border-color:var(--accent);font-weight:700}
   .row{display:flex;justify-content:space-between;align-items:center;gap:12px;border-bottom:1px solid var(--line);padding:10px 0;flex-wrap:wrap}
   .row:last-child{border-bottom:0}
-  .fn{font-family:ui-monospace,Menlo,monospace;font-size:14px}
-  .st{font-size:13px}
-  .ok{color:var(--ok)} .warn{color:var(--warn)} .bad{color:var(--bad)}
-  .err{color:var(--warn);font-size:13px;min-height:1.2em;margin:0}
+  .row > div{min-width:0;flex:1}
+  .tag{font-family:ui-monospace,Menlo,monospace;font-size:12px;color:var(--muted);border:1px solid var(--line);padding:0 6px}
+  .ok{color:var(--ok)} .bad{color:var(--bad)} .warn{color:var(--warn)}
+  .preview{border:1px dashed var(--line);padding:12px;min-height:60px;overflow-wrap:anywhere}
+  .preview p{margin:0 0 8px} .preview a{color:var(--accent)} .preview code{background:var(--panel2);padding:0 4px}
+  .fn{font-family:ui-monospace,Menlo,monospace}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .stack{display:flex;flex-direction:column;gap:12px}
+  @media (max-width:480px){.grid2{grid-template-columns:1fr}}
   [hidden]{display:none!important}
 </style>
 </head>
@@ -30,22 +44,104 @@
   <h1>HippoLink 管理</h1>
 
   <section id="login" class="panel">
-    <p class="note">請輸入你的管理者序號。只在自己的裝置上登入，不要把這個網址公開轉貼。</p>
+    <p class="note">請輸入你的管理者序號。登入後會記住在這台裝置上，請只在自己的裝置操作。</p>
     <input id="code" type="text" autocomplete="off" autocapitalize="characters" placeholder="管理者序號">
-    <p class="err" id="loginErr" role="alert"></p>
+    <p class="msg" id="loginMsg"></p>
     <button id="loginBtn" onclick="login()">登入</button>
   </section>
 
   <section id="app" class="wrap" hidden>
-    <div class="panel">
-      <div style="display:flex;justify-content:space-between;align-items:center">
+    <div class="tabs">
+      <button data-tab="chars" aria-pressed="true" onclick="tab('chars')">角色與序號</button>
+      <button data-tab="news" aria-pressed="false" onclick="tab('news')">公告</button>
+      <button data-tab="health" aria-pressed="false" onclick="tab('health')">健康檢查</button>
+      <button class="ghost" onclick="logout()">登出</button>
+    </div>
+
+    <!-- 角色與序號 -->
+    <section id="tab-chars" class="stack">
+      <div class="panel">
+        <h2>匯入名單</h2>
+        <p class="note">貼上序號產生器的 CSV（角色名稱,陣營,序號,Discord ID）。會先預覽，確認後才寫入。序號只會在你的瀏覽器裡轉成雜湊後才送出，確認完文字框會自動清空。</p>
+        <textarea id="csv" placeholder="角色名稱,陣營,序號,Discord ID"></textarea>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button onclick="previewImport()">預覽</button>
+          <button class="ghost" id="commitBtn" onclick="commitImport()" disabled>確認匯入</button>
+        </div>
+        <p class="msg" id="importMsg"></p>
+        <div id="importPreview"></div>
+      </div>
+
+      <div class="panel">
+        <h2>角色一覽</h2>
+        <div id="charList"><p class="note">載入中…</p></div>
+      </div>
+    </section>
+
+    <!-- 公告 -->
+    <section id="tab-news" class="stack" hidden>
+      <div class="panel">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
+          <h2 id="formTitle">新增內容</h2>
+          <button class="ghost" onclick="resetForm()">清空表單</button>
+        </div>
+        <input type="hidden" id="f_id">
+        <div class="grid2">
+          <label>類型
+            <select id="f_kind" onchange="kindChanged()">
+              <option value="announcement">公告</option>
+              <option value="puzzle">解謎</option>
+              <option value="vote">投票</option>
+            </select>
+          </label>
+          <label>狀態
+            <select id="f_status">
+              <option value="draft">草稿</option>
+              <option value="published">已發布</option>
+            </select>
+          </label>
+          <label>受眾<select id="f_audience"></select></label>
+          <label>發布時間<input type="datetime-local" id="f_publish"></label>
+        </div>
+        <label>標題<input id="f_title" maxlength="60"></label>
+        <label>內容（支援 Markdown）<textarea id="f_body" oninput="renderPreview()"></textarea></label>
+        <div class="preview" id="f_prev"></div>
+
+        <div id="qBox" class="stack" hidden>
+          <label>題目／問題<textarea id="f_q"></textarea></label>
+        </div>
+        <div id="puzzleBox" class="stack" hidden>
+          <label>正確答案<input id="f_answer"></label>
+          <label>提示（玩家答錯後顯示）<input id="f_hint"></label>
+        </div>
+        <div id="voteBox" hidden>
+          <label>選項（每行一個，至少兩個）<textarea id="f_options"></textarea></label>
+        </div>
+
+        <p class="msg" id="newsMsg"></p>
+        <button onclick="saveNews()">儲存</button>
+      </div>
+
+      <div class="panel">
+        <h2>所有內容</h2>
+        <div id="newsList"></div>
+      </div>
+
+      <div class="panel">
+        <h2>最近操作紀錄</h2>
+        <div id="auditList"></div>
+      </div>
+    </section>
+
+    <!-- 健康檢查 -->
+    <section id="tab-health" class="panel" hidden>
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
         <h2>系統健康檢查</h2>
         <button id="checkBtn" onclick="checkAll()">檢查全部</button>
       </div>
-      <p class="note">先測預檢（OPTIONS），再測實際呼叫（POST）。預檢應為 204，實際呼叫回傳任何數字都代表函式有在運作。</p>
-      <div id="list"></div>
-    </div>
-    <div style="text-align:center"><button onclick="logout()" style="background:transparent;color:var(--muted);border:1px solid var(--line)">登出</button></div>
+      <p class="note">預檢應為 204；實際呼叫回傳任何數字都代表函式有在運作。</p>
+      <div id="health"></div>
+    </section>
   </section>
 </main>
 
@@ -54,8 +150,14 @@ const API = 'https://tpmzbscqerteskakwfpd.supabase.co/functions/v1/';
 const KEY = 'sb_publishable_jO7lG-qxUbq1t2bK5R23Fw_u7zVMivM';
 const LS = 'lyaeus.admin.v1';
 const FNS = ['admin', 'get-state', 'submit', 'save-card', 'claim-code'];
+const FAC = { employee: '解憂者員工', enforcer: '執法者', citizen: '一般市民', rebel: '反抗者', other: '其他' };
+const KIND = { announcement: '公告', puzzle: '解謎', vote: '投票' };
+
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const md = s => DOMPurify.sanitize(marked.parse(String(s ?? '')));
+
+let CODE = null, CHARS = [], NEWS = [], PENDING = [];
 
 async function api(fn, method, body){
   try{
@@ -65,67 +167,247 @@ async function api(fn, method, body){
     let j = {}; try{ j = await r.json(); }catch(e){}
     return { ok: r.ok, status: r.status, data: j };
   }catch(e){
-    return { ok: false, status: 0, data: { error: e.message } };
+    return { ok: false, status: 0, data: { error: '連線失敗：' + e.message } };
   }
 }
+const adminApi = (action, extra = {}) => api('admin', 'POST', { code: CODE, action, ...extra });
+function say(el, text, ok){ el.textContent = text; el.className = 'msg' + (ok ? ' ok' : ''); }
 
+/* ===== 登入 ===== */
 async function login(){
   const code = $('code').value.trim();
-  $('loginErr').textContent = '';
-  if(!code){ $('loginErr').textContent = '請輸入序號'; return; }
-  $('loginBtn').disabled = true;
-  const r = await api('admin', 'POST', { code, action: 'whoami' });
+  if(!code){ say($('loginMsg'), '請輸入序號'); return; }
+  CODE = code; $('loginBtn').disabled = true;
+  const r = await adminApi('whoami');
   $('loginBtn').disabled = false;
-  if(!r.ok){ $('loginErr').textContent = r.data.error || ('登入失敗（' + r.status + '）'); return; }
+  if(!r.ok){ CODE = null; say($('loginMsg'), r.data.error || ('登入失敗（' + r.status + '）')); return; }
   try{ localStorage.setItem(LS, code); }catch(e){}
   $('code').value = '';
-  show();
+  start();
 }
-function show(){
-  $('login').hidden = true;
-  $('app').hidden = false;
-  checkAll();
-}
+function start(){ $('login').hidden = true; $('app').hidden = false; tab('chars'); }
 function logout(){
+  CODE = null;
   try{ localStorage.removeItem(LS); }catch(e){}
-  $('app').hidden = true;
-  $('login').hidden = false;
+  $('app').hidden = true; $('login').hidden = false;
 }
 
+function tab(name){
+  ['chars','news','health'].forEach(t => { $('tab-' + t).hidden = t !== name; });
+  document.querySelectorAll('.tabs button[data-tab]').forEach(b => b.setAttribute('aria-pressed', b.dataset.tab === name));
+  if(name === 'chars') loadChars();
+  if(name === 'news') loadNews();
+  if(name === 'health') checkAll();
+}
+
+/* ===== 角色與序號 ===== */
+async function loadChars(){
+  const r = await adminApi('list-characters');
+  if(!r.ok){ $('charList').innerHTML = `<p class="bad">${esc(r.data.error || '讀取失敗')}</p>`; return; }
+  CHARS = r.data.items;
+  $('charList').innerHTML = CHARS.map(c => `
+    <div class="row">
+      <div>
+        <b>${esc(c.name)}</b> <span class="tag">${esc(FAC[c.faction] || c.faction)}</span>
+        <div class="note">
+          ${c.discord_id ? 'Discord：' + esc(c.discord_id) : '<span class="warn">未綁定</span>'}
+          ・ 角色卡：${c.has_card ? '已填' : '未填'}
+          ・ 序號：${c.code_status === 'active' ? '<span class="ok">有效</span>' : c.code_status ? '<span class="bad">已停用</span>' : '無'}
+        </div>
+      </div>
+      ${c.code_status ? `<button class="${c.code_status === 'active' ? 'danger' : 'ghost'}"
+        onclick="toggleCode('${c.id}','${c.code_status === 'active' ? 'disabled' : 'active'}')">${c.code_status === 'active' ? '停用序號' : '啟用序號'}</button>` : ''}
+    </div>`).join('') || '<p class="note">還沒有角色</p>';
+}
+async function toggleCode(id, status){
+  const r = await adminApi('set-code-status', { character_id: id, status });
+  if(!r.ok){ alert(r.data.error || '失敗'); return; }
+  loadChars();
+}
+
+function parseCsv(text){
+  return text.split(/\r?\n/).map(l => l.trim()).filter(Boolean)
+    .filter((l, i) => !(i === 0 && l.startsWith('角色名稱')))
+    .map(l => { const p = l.split(',').map(s => s.trim()); return { name: p[0] || '', faction: p[1] || '', code: p[2] || '', discord: p[3] || '' }; });
+}
+async function sha256(text){
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
+  return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, '0')).join('');
+}
+async function previewImport(){
+  const rows = parseCsv($('csv').value);
+  if(!rows.length){ say($('importMsg'), '名單是空的'); return; }
+  PENDING = await Promise.all(rows.map(async r => ({
+    name: r.name, faction: r.faction, discord: r.discord,
+    hash: await sha256(r.code.toUpperCase()),
+  })));
+  const r = await adminApi('import-preview', { rows: PENDING });
+  if(!r.ok){ say($('importMsg'), r.data.error || '預覽失敗'); return; }
+  const okCount = r.data.rows.filter(x => x.ok).length;
+  $('importPreview').innerHTML = r.data.rows.map(x => `
+    <div class="row">
+      <div>${esc(x.name)} <span class="tag">${esc(FAC[x.faction] || x.faction)}</span></div>
+      <span class="${x.ok ? 'ok' : 'bad'}">${x.ok ? '可匯入' : esc(x.reason)}</span>
+    </div>`).join('');
+  say($('importMsg'), `共 ${rows.length} 筆，可匯入 ${okCount} 筆`, okCount > 0);
+  $('commitBtn').disabled = okCount === 0;
+}
+async function commitImport(){
+  $('commitBtn').disabled = true;
+  const r = await adminApi('import-commit', { rows: PENDING });
+  if(!r.ok){ say($('importMsg'), r.data.error || '匯入失敗'); $('commitBtn').disabled = false; return; }
+  say($('importMsg'), `已匯入 ${r.data.created} 筆`, true);
+  $('csv').value = ''; $('importPreview').innerHTML = ''; PENDING = [];
+  loadChars();
+}
+
+/* ===== 公告 ===== */
+async function ensureChars(){
+  if(!CHARS.length){ const r = await adminApi('list-characters'); if(r.ok) CHARS = r.data.items; }
+}
+function fillAudience(){
+  const cur = $('f_audience').value;
+  const opts = [['all', '全體'],
+    ...Object.entries(FAC).map(([k, v]) => ['faction:' + k, '陣營：' + v]),
+    ...CHARS.map(c => ['char:' + c.id, '角色：' + c.name])];
+  $('f_audience').innerHTML = opts.map(([v, t]) => `<option value="${esc(v)}">${esc(t)}</option>`).join('');
+  if(cur) $('f_audience').value = cur;
+}
+function localInput(iso){
+  const d = new Date(iso);
+  return new Date(d - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+}
+function kindChanged(){
+  const k = $('f_kind').value;
+  $('qBox').hidden = k === 'announcement';
+  $('puzzleBox').hidden = k !== 'puzzle';
+  $('voteBox').hidden = k !== 'vote';
+}
+function renderPreview(){
+  $('f_prev').innerHTML = md($('f_body').value) || '<span class="note">預覽會顯示在這裡</span>';
+}
+function resetForm(){
+  $('f_id').value = ''; $('f_kind').value = 'announcement'; $('f_status').value = 'draft';
+  $('f_title').value = ''; $('f_body').value = ''; $('f_q').value = '';
+  $('f_answer').value = ''; $('f_hint').value = ''; $('f_options').value = '';
+  $('f_publish').value = localInput(new Date().toISOString());
+  $('formTitle').textContent = '新增內容';
+  kindChanged(); renderPreview();
+}
+async function loadNews(){
+  await ensureChars();
+  fillAudience();
+  if(!$('f_publish').value) resetForm();
+  const r = await adminApi('list-announcements');
+  if(!r.ok){ say($('newsMsg'), r.data.error || '讀取失敗'); return; }
+  NEWS = r.data.items;
+  $('newsList').innerHTML = NEWS.map(n => `
+    <div class="row">
+      <div>
+        <b>${esc(n.title)}</b>
+        <span class="tag">${esc(KIND[n.kind] || n.kind)}</span>
+        <span class="tag">${n.status === 'published' ? '已發布' : '草稿'}</span>
+        <div class="note">
+          ${new Date(n.publish_at).toLocaleString('zh-TW')}
+          ・ ${n.kind === 'vote' ? '投票 ' + n.votes + ' 票' : n.kind === 'puzzle' ? '已解開 ' + n.solved + ' 人' : ''}
+        </div>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button class="ghost" onclick="editNews('${n.id}')">編輯</button>
+        <button class="danger" onclick="deleteNews('${n.id}')">刪除</button>
+      </div>
+    </div>`).join('') || '<p class="note">還沒有內容</p>';
+  loadAudit();
+}
+function editNews(id){
+  const n = NEWS.find(x => x.id === id);
+  if(!n) return;
+  $('f_id').value = n.id; $('f_kind').value = n.kind; $('f_status').value = n.status;
+  fillAudience(); $('f_audience').value = n.audience;
+  $('f_publish').value = localInput(n.publish_at);
+  $('f_title').value = n.title; $('f_body').value = n.body || '';
+  $('f_q').value = n.payload?.q || '';
+  $('f_answer').value = n.answer || ''; $('f_hint').value = n.hint || '';
+  $('f_options').value = (n.payload?.options || []).join('\n');
+  $('formTitle').textContent = '編輯內容';
+  kindChanged(); renderPreview();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+async function saveNews(){
+  const item = {
+    id: $('f_id').value || undefined,
+    kind: $('f_kind').value,
+    status: $('f_status').value,
+    audience: $('f_audience').value,
+    publish_at: $('f_publish').value ? new Date($('f_publish').value).toISOString() : undefined,
+    title: $('f_title').value.trim(),
+    body: $('f_body').value,
+    q: $('f_q').value,
+    answer: $('f_answer').value,
+    hint: $('f_hint').value,
+    options: $('f_options').value.split('\n').map(s => s.trim()).filter(Boolean),
+  };
+  const r = await adminApi('save-announcement', { item });
+  if(!r.ok){ say($('newsMsg'), r.data.error || '儲存失敗'); return; }
+  resetForm();
+  say($('newsMsg'), '已儲存', true);
+  loadNews();
+}
+async function deleteNews(id){
+  const n = NEWS.find(x => x.id === id);
+  if(!confirm(`確定要刪除「${n?.title}」？投票與解謎紀錄也會一起刪除。`)) return;
+  const r = await adminApi('delete-announcement', { id });
+  if(!r.ok){ alert(r.data.error || '刪除失敗'); return; }
+  loadNews();
+}
+async function loadAudit(){
+  const r = await adminApi('list-audit');
+  $('auditList').innerHTML = r.ok
+    ? (r.data.items.map(x => `
+        <div class="row"><div><span class="fn">${esc(x.action)}</span>
+        <div class="note">${new Date(x.at).toLocaleString('zh-TW')}</div></div></div>`).join('') || '<p class="note">沒有紀錄</p>')
+    : '<p class="note">讀取失敗</p>';
+}
+
+/* ===== 健康檢查 ===== */
 function label(status){
   if(status === 0) return ['連不上（CORS 或函式啟動失敗）', 'bad'];
   if(status === 204 || status === 200) return ['正常', 'ok'];
-  if(status === 404) return ['函式不存在，請確認名稱', 'bad'];
-  if(status >= 500) return ['函式內部錯誤，請看 Logs', 'bad'];
+  if(status === 404) return ['函式不存在', 'bad'];
+  if(status >= 500) return ['函式內部錯誤', 'bad'];
   return ['有回應（' + status + '）', 'ok'];
 }
-
 async function checkAll(){
-  const list = $('list');
+  const box = $('health');
   $('checkBtn').disabled = true;
-  list.innerHTML = '<p class="note">檢查中…</p>';
+  box.innerHTML = '<p class="note">檢查中…</p>';
   let html = '';
   for(const fn of FNS){
     const pre = await api(fn, 'OPTIONS');
     const post = await api(fn, 'POST', {});
-    const [preText, preCls] = label(pre.status === 204 ? 204 : pre.status);
-    const [postText, postCls] = label(post.status);
+    const [pt, pc] = label(pre.status);
+    const [qt, qc] = label(post.status);
     const msg = post.data && post.data.error ? post.data.error : '';
-    html += `
-      <div class="row">
-        <span class="fn">${esc(fn)}</span>
-        <span class="st">預檢：<span class="${preCls}">${esc(preText)}</span>　實際：<span class="${postCls}">${esc(postText)}</span></span>
-        ${msg ? `<span class="note" style="width:100%">回應：${esc(msg)}</span>` : ''}
-      </div>`;
+    html += `<div class="row">
+      <span class="fn">${esc(fn)}</span>
+      <span>預檢：<span class="${pc}">${esc(pt)}</span>　實際：<span class="${qc}">${esc(qt)}</span></span>
+      ${msg ? `<span class="note" style="width:100%">回應：${esc(msg)}</span>` : ''}
+    </div>`;
   }
-  list.innerHTML = html;
+  box.innerHTML = html;
   $('checkBtn').disabled = false;
 }
 
+/* ===== 啟動 ===== */
 (function boot(){
   let saved = null;
   try{ saved = localStorage.getItem(LS); }catch(e){}
-  if(saved){ $('code').value = saved; login(); }
+  if(!saved) return;
+  CODE = saved;
+  adminApi('whoami').then(r => {
+    if(r.ok) start();
+    else { CODE = null; try{ localStorage.removeItem(LS); }catch(e){} }
+  });
 })();
 </script>
 </body>
