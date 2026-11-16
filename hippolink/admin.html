@@ -19,6 +19,7 @@
   textarea{min-height:90px;resize:vertical}
   input[type=checkbox]{width:auto}
   label{display:flex;flex-direction:column;gap:5px;font-size:13px;color:var(--muted);min-width:0}
+  label.check{flex-direction:row;align-items:center;gap:8px;color:var(--fg);font-size:14px}
   button{background:var(--accent);color:#1a1014;border:0;padding:9px 14px;font-weight:700;cursor:pointer}
   button.ghost{background:transparent;color:var(--fg);border:1px solid var(--line);font-weight:500}
   button.danger{background:transparent;color:var(--bad);border:1px solid var(--bad);font-weight:500}
@@ -112,6 +113,11 @@
             </select>
           </label>
         </div>
+
+        <label class="check" id="glitchBox">
+          <input type="checkbox" id="f_glitch">
+          故障雜訊效果（只對公告有效，玩家打開時閃一下）
+        </label>
 
         <div class="stack">
           <span class="note">受眾（可複選，任一符合即可看到；選「全體」會取消其他）</span>
@@ -340,7 +346,7 @@ function renderUC(){
       <div class="panel">
         <div class="rowline"><b>${esc(c.name)}</b> ${tags}</div>
         <div class="grid3">
-          <label class="rowline" style="color:var(--fg);font-size:14px">
+          <label class="check">
             <input type="checkbox" id="uc_en_${c.id}" ${c.is_undercover ? 'checked' : ''}> 設為臥底
           </label>
           <label>真實陣營
@@ -387,7 +393,7 @@ function fillAudience(sel = ['all']){
     ...Object.entries(FAC).map(([k, v]) => ['secret:' + k, '【隱藏】真實陣營：' + v]),
     ...CHARS.map(c => ['char:' + c.id, '角色：' + c.name])];
   $('f_audience_box').innerHTML = opts.map(([v, t]) => `
-    <label>
+    <label class="check">
       <input type="checkbox" class="aud" value="${esc(v)}" ${sel.includes(v) ? 'checked' : ''} onchange="audChanged(this)">
       ${esc(t)}
     </label>`).join('');
@@ -455,6 +461,8 @@ function kindChanged(){
   $('qBox').hidden = k === 'announcement';
   $('puzzleBox').hidden = k !== 'puzzle';
   $('voteBox').hidden = k !== 'vote';
+  $('glitchBox').hidden = k !== 'announcement';
+  if(k !== 'announcement') $('f_glitch').checked = false;
 }
 function renderPreview(){
   $('f_prev').innerHTML = md($('f_body').value) || '<span class="note">預覽會顯示在這裡</span>';
@@ -509,6 +517,7 @@ function resetForm(){
   $('f_id').value = ''; $('f_kind').value = 'announcement'; $('f_status').value = 'draft';
   $('f_title').value = ''; $('f_body').value = ''; $('f_q').value = '';
   $('f_answer').value = ''; $('f_hint').value = ''; $('f_options').value = '';
+  $('f_glitch').checked = false;
   $('f_publisher').value = DEFAULT_PUBLISHER;
   $('f_publish').value = localInput(new Date().toISOString());
   AVATAR = '';
@@ -535,6 +544,7 @@ async function loadNews(){
         <b>${esc(n.title || '（無標題）')}</b>
         <span class="tag">${esc(KIND[n.kind] || n.kind)}</span>
         <span class="tag">${n.status === 'published' ? '已發布' : '草稿'}</span>
+        ${n.glitch ? '<span class="tag warn">故障雜訊</span>' : ''}
         <div class="note">
           ${esc(n.publisher || '未填發布者')} ・ ${new Date(n.publish_at).toLocaleString('zh-TW')}
           ・ 受眾：${esc(String(n.audience || '').split(',').join('、'))}
@@ -563,6 +573,7 @@ function editNews(id){
   $('f_q').value = n.payload?.q || '';
   $('f_answer').value = n.answer || ''; $('f_hint').value = n.hint || '';
   $('f_options').value = (n.payload?.options || []).join('\n');
+  $('f_glitch').checked = !!n.glitch;
   $('formTitle').textContent = '編輯內容';
   kindChanged(); renderPreview();
   window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -583,6 +594,7 @@ async function saveNews(){
     avatar,
     title: $('f_title').value.trim(),
     body: $('f_body').value,
+    glitch: $('f_glitch').checked,
     q: $('f_q').value,
     answer: $('f_answer').value,
     hint: $('f_hint').value,
