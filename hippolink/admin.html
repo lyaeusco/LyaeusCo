@@ -163,6 +163,7 @@
         <div id="puzzleBox" class="stack" hidden>
           <label>正確答案<input id="f_answer"></label>
           <label>提示（玩家答錯後顯示）<input id="f_hint"></label>
+          <label>解開後才顯示的獎勵內容（選填，支援 Markdown，未解開的玩家完全看不到）<textarea id="f_reward"></textarea></label>
         </div>
         <div id="voteBox" hidden>
           <label>選項（每行一個，至少兩個）<textarea id="f_options"></textarea></label>
@@ -537,7 +538,7 @@ function showAvatar(){
 function resetForm(){
   $('f_id').value = ''; $('f_kind').value = 'announcement'; $('f_status').value = 'draft';
   $('f_title').value = ''; $('f_body').value = ''; $('f_q').value = '';
-  $('f_answer').value = ''; $('f_hint').value = ''; $('f_options').value = '';
+  $('f_answer').value = ''; $('f_hint').value = ''; $('f_reward').value = ''; $('f_options').value = '';
   $('f_glitch').checked = false;
   $('f_publisher').value = DEFAULT_PUBLISHER;
   $('f_publish').value = localInput(new Date().toISOString());
@@ -566,6 +567,7 @@ async function loadNews(){
         <span class="tag">${esc(KIND[n.kind] || n.kind)}</span>
         <span class="tag">${n.status === 'published' ? '已發布' : '草稿'}</span>
         ${n.glitch ? '<span class="tag warn">故障雜訊</span>' : ''}
+        ${n.kind === 'puzzle' && n.reward ? '<span class="tag ok">有獎勵</span>' : ''}
         <div class="note">
           ${esc(n.publisher || '未填發布者')} ・ ${new Date(n.publish_at).toLocaleString('zh-TW')}
           ・ 受眾：${esc(String(n.audience || '').split(',').join('、'))}
@@ -594,6 +596,7 @@ function editNews(id){
   $('f_title').value = n.title || ''; $('f_body').value = n.body || '';
   $('f_q').value = n.payload?.q || '';
   $('f_answer').value = n.answer || ''; $('f_hint').value = n.hint || '';
+  $('f_reward').value = n.reward || '';
   $('f_options').value = (n.payload?.options || []).join('\n');
   $('f_glitch').checked = !!n.glitch;
   $('formTitle').textContent = '編輯內容';
@@ -620,6 +623,7 @@ async function saveNews(){
     q: $('f_q').value,
     answer: $('f_answer').value,
     hint: $('f_hint').value,
+    reward: $('f_reward').value,
     options: $('f_options').value.split('\n').map(s => s.trim()).filter(Boolean),
   };
   const r = await adminApi('save-announcement', { item });
