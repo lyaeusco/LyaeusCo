@@ -35,6 +35,8 @@
   .fn{font-family:ui-monospace,Menlo,monospace}
   .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
   .stack{display:flex;flex-direction:column;gap:12px}
+  .avatarRow{display:flex;align-items:center;gap:10px}
+  .avatar{width:56px;height:56px;border-radius:50%;object-fit:cover;background:var(--panel2);border:1px solid var(--line)}
   @media (max-width:480px){.grid2{grid-template-columns:1fr}}
   [hidden]{display:none!important}
 </style>
@@ -86,6 +88,7 @@
           <button class="ghost" onclick="resetForm()">清空表單</button>
         </div>
         <input type="hidden" id="f_id">
+
         <div class="grid2">
           <label>類型
             <select id="f_kind" onchange="kindChanged()">
@@ -103,7 +106,25 @@
           <label>受眾<select id="f_audience"></select></label>
           <label>發布時間<input type="datetime-local" id="f_publish"></label>
         </div>
-        <label>標題<input id="f_title" maxlength="60"></label>
+
+        <div class="grid2">
+          <label>發布者（可選常用，也可自己輸入）
+            <input id="f_publisher" list="pubList" maxlength="30">
+            <datalist id="pubList">
+              <option value="解憂者有限公司"></option>
+              <option value="秩序局"></option>
+            </datalist>
+          </label>
+          <label>發布者頭貼（會自動裁成圓形用的正方形）
+            <input type="file" id="f_avatar_file" accept="image/*" onchange="pickAvatar(this)">
+          </label>
+        </div>
+        <div class="avatarRow">
+          <img id="f_avatar_prev" class="avatar" alt="" hidden>
+          <button class="ghost" type="button" onclick="clearAvatar()">移除頭貼</button>
+        </div>
+
+        <label>標題（選填）<input id="f_title" maxlength="60"></label>
         <label>內容（支援 Markdown）<textarea id="f_body" oninput="renderPreview()"></textarea></label>
         <div class="preview" id="f_prev"></div>
 
@@ -152,12 +173,13 @@ const LS = 'lyaeus.admin.v1';
 const FNS = ['admin', 'get-state', 'submit', 'save-card', 'claim-code'];
 const FAC = { employee: '解憂者員工', enforcer: '執法者', citizen: '一般市民', rebel: '反抗者', other: '其他' };
 const KIND = { announcement: '公告', puzzle: '解謎', vote: '投票' };
+const DEFAULT_PUBLISHER = '解憂者有限公司';
 
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const md = s => DOMPurify.sanitize(marked.parse(String(s ?? '')));
 
-let CODE = null, CHARS = [], NEWS = [], PENDING = [];
+let CODE = null, CHARS = [], NEWS = [], PENDING = [], AVATAR = '';
 
 async function api(fn, method, body){
   try{
@@ -286,14 +308,59 @@ function kindChanged(){
 function renderPreview(){
   $('f_prev').innerHTML = md($('f_body').value) || '<span class="note">預覽會顯示在這裡</span>';
 }
+
+/* 頭貼：在瀏覽器裡裁成 128×128 的 JPEG，再存成文字 */
+function resizeImage(file){
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = reject;
+    reader.onload = () => {
+      const im = new Image();
+      im.onerror = reject;
+      im.onload = () => {
+        const S = 128;
+        const c = document.createElement('canvas');
+        c.width = S; c.height = S;
+        const g = c.getContext('2d');
+        const s = Math.max(S / im.width, S / im.height);
+        const w = im.width * s, h = im.height * s;
+        g.drawImage(im, (S - w) / 2, (S - h) / 2, w, h);
+        resolve(c.toDataURL('image/jpeg', 0.85));
+      };
+      im.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+function pickAvatar(input){
+  const file = input.files && input.files[0];
+  if(!file) return;
+  resizeImage(file)
+    .then(d => { AVATAR = d; showAvatar(); })
+    .catch(() => say($('newsMsg'), '頭貼讀取失敗，請換一張圖片'));
+}
+function clearAvatar(){
+  AVATAR = '';
+  $('f_avatar_file').value = '';
+  showAvatar();
+}
+function showAvatar(){
+  const img = $('f_avatar_prev');
+  img.hidden = !AVATAR;
+  img.src = AVATAR || '';
+}
+
 function resetForm(){
   $('f_id').value = ''; $('f_kind').value = 'announcement'; $('f_status').value = 'draft';
   $('f_title').value = ''; $('f_body').value = ''; $('f_q').value = '';
   $('f_answer').value = ''; $('f_hint').value = ''; $('f_options').value = '';
+  $('f_publisher').value = DEFAULT_PUBLISHER;
   $('f_publish').value = localInput(new Date().toISOString());
+  clearAvatar();
   $('formTitle').textContent = '新增內容';
   kindChanged(); renderPreview();
 }
+
 async function loadNews(){
   await ensureChars();
   fillAudience();
@@ -304,12 +371,12 @@ async function loadNews(){
   $('newsList').innerHTML = NEWS.map(n => `
     <div class="row">
       <div>
-        <b>${esc(n.title)}</b>
+        <b>${esc(n.title || '（無標題）')}</b>
         <span class="tag">${esc(KIND[n.kind] || n.kind)}</span>
         <span class="tag">${n.status === 'published' ? '已發布' : '草稿'}</span>
         <div class="note">
-          ${new Date(n.publish_at).toLocaleString('zh-TW')}
-          ・ ${n.kind === 'vote' ? '投票 ' + n.votes + ' 票' : n.kind === 'puzzle' ? '已解開 ' + n.solved + ' 人' : ''}
+          ${esc(n.publisher || '未填發布者')} ・ ${new Date(n.publish_at).toLocaleString('zh-TW')}
+          ${n.kind === 'vote' ? ' ・ 投票 ' + n.votes + ' 票' : n.kind === 'puzzle' ? ' ・ 已解開 ' + n.solved + ' 人' : ''}
         </div>
       </div>
       <div style="display:flex;gap:8px">
@@ -319,13 +386,16 @@ async function loadNews(){
     </div>`).join('') || '<p class="note">還沒有內容</p>';
   loadAudit();
 }
+
 function editNews(id){
   const n = NEWS.find(x => x.id === id);
   if(!n) return;
   $('f_id').value = n.id; $('f_kind').value = n.kind; $('f_status').value = n.status;
   fillAudience(); $('f_audience').value = n.audience;
   $('f_publish').value = localInput(n.publish_at);
-  $('f_title').value = n.title; $('f_body').value = n.body || '';
+  $('f_publisher').value = n.publisher || '';
+  AVATAR = n.publisher_avatar || ''; showAvatar();
+  $('f_title').value = n.title || ''; $('f_body').value = n.body || '';
   $('f_q').value = n.payload?.q || '';
   $('f_answer').value = n.answer || ''; $('f_hint').value = n.hint || '';
   $('f_options').value = (n.payload?.options || []).join('\n');
@@ -333,6 +403,7 @@ function editNews(id){
   kindChanged(); renderPreview();
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
+
 async function saveNews(){
   const item = {
     id: $('f_id').value || undefined,
@@ -340,6 +411,8 @@ async function saveNews(){
     status: $('f_status').value,
     audience: $('f_audience').value,
     publish_at: $('f_publish').value ? new Date($('f_publish').value).toISOString() : undefined,
+    publisher: $('f_publisher').value.trim(),
+    avatar: AVATAR,
     title: $('f_title').value.trim(),
     body: $('f_body').value,
     q: $('f_q').value,
@@ -355,7 +428,7 @@ async function saveNews(){
 }
 async function deleteNews(id){
   const n = NEWS.find(x => x.id === id);
-  if(!confirm(`確定要刪除「${n?.title}」？投票與解謎紀錄也會一起刪除。`)) return;
+  if(!confirm(`確定要刪除「${n?.title || '這則內容'}」？投票與解謎紀錄也會一起刪除。`)) return;
   const r = await adminApi('delete-announcement', { id });
   if(!r.ok){ alert(r.data.error || '刪除失敗'); return; }
   loadNews();
