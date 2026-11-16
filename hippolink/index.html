@@ -47,6 +47,11 @@ input[type=text],textarea{width:100%;background:var(--panel2);border:1px solid v
 .ok{color:var(--ok);font-size:14px;margin:0}
 .item{border-left:2px solid var(--accent);padding:4px 0 4px 12px;display:flex;flex-direction:column;gap:6px;min-width:0}
 .item.ivt{border-left-color:var(--warn)}
+/* 依陣營上色的左側色條（放在 .ivt 後面，才能覆蓋解謎與投票的黃色） */
+.item.tone-employee{border-left-color:#e08aad}
+.item.tone-enforcer{border-left-color:#4a8fe6}
+.item.tone-citizen{border-left-color:#c9bfcc}
+.item.tone-rebel{border-left-color:#d9ff3f}
 .item time{color:var(--muted);font-family:var(--mono);font-size:12px}
 .opt{text-align:left;width:100%;background:transparent;border:1px solid var(--line);padding:10px 12px;cursor:pointer}
 .opt[aria-checked="true"]{border-color:var(--accent);background:rgba(224,137,172,.12)}
@@ -267,9 +272,13 @@ const LS_KEY = 'lyaeus.code.v1';
 /* ===== 狀態 ===== */
 const S = {code:null, data:null, active:null, tab:'news', pending:{}};
 const FAC_NAME = { employee:'解憂者員工', enforcer:'執法者', citizen:'一般市民', rebel:'反抗者', other:'其他' };
+const TONES = ['employee','enforcer','citizen','rebel'];
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const REDUCE_MOTION = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
+
+/* 色條顏色：只接受四個陣營，其他值一律不上色 */
+const toneCls = it => TONES.includes(it.tone) ? ' tone-' + it.tone : '';
 
 /* 公告內容：`-# 文字` 轉成小字，其餘交給 Markdown；過濾後才顯示 */
 function mdText(s){
@@ -436,7 +445,7 @@ function renderNews(){
       <p class="note">只顯示你目前身分可以看到的內容。解謎與投票都是各自的，互動內容會同步發到 Discord 頻道。</p></div>
     ${items.map(it => {
       if(it.kind === 'announcement') return `
-        <article class="item">
+        <article class="item${toneCls(it)}">
           <time>${new Date(it.publish_at).toLocaleString('zh-TW')}</time>
           ${it.publisher ? `
             <div style="display:flex;align-items:center;gap:8px">
@@ -446,7 +455,7 @@ function renderNews(){
           <div class="md${it.glitch ? ' gl-on' : ''}" style="font-size:15px">${md(it.body)}</div>
         </article>`;
       if(it.kind === 'puzzle') return `
-        <article class="item ivt">
+        <article class="item ivt${toneCls(it)}">
           <time>解謎</time>
           <h3 style="font-size:18px">${esc(it.title)}</h3>
           <p style="margin:0">${esc(it.payload?.q)}</p>
@@ -461,7 +470,7 @@ function renderNews(){
             ${it.hint ? `<p class="note">提示：${esc(it.hint)}</p>` : ''}`}
         </article>`;
       if(it.kind === 'vote') return `
-        <article class="item ivt">
+        <article class="item ivt${toneCls(it)}">
           <time>投票</time>
           <h3 style="font-size:18px">${esc(it.title)}</h3>
           <p class="note" style="font-size:14px">${esc(it.payload?.q)}</p>
