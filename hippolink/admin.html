@@ -40,6 +40,8 @@
   .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
   .grid3{display:grid;grid-template-columns:1fr 1fr;gap:10px;align-items:end}
   .stack{display:flex;flex-direction:column;gap:12px}
+  .audBox{display:flex;flex-direction:column;gap:6px;border:1px solid var(--line);padding:10px;max-height:260px;overflow:auto}
+  .audBox label{flex-direction:row;align-items:center;gap:8px;color:var(--fg);font-size:14px}
   .avatarRow{display:flex;align-items:center;gap:10px}
   .avatar{width:56px;height:56px;border-radius:50%;object-fit:cover;background:var(--panel2);border:1px solid var(--line)}
   @media (max-width:480px){.grid2,.grid3{grid-template-columns:1fr}}
@@ -109,11 +111,15 @@
               <option value="published">已發布</option>
             </select>
           </label>
-          <label>受眾<select id="f_audience"></select></label>
-          <label>發布時間<input type="datetime-local" id="f_publish"></label>
+        </div>
+
+        <div class="stack">
+          <span class="note">受眾（可複選，任一符合即可看到；選「全體」會取消其他）</span>
+          <div id="f_audience_box" class="audBox"></div>
         </div>
 
         <div class="grid2">
+          <label>發布時間<input type="datetime-local" id="f_publish"></label>
           <label>發布者（可選常用，也可自己輸入）
             <input id="f_publisher" list="pubList" maxlength="30">
             <datalist id="pubList">
@@ -121,13 +127,16 @@
               <option value="秩序局"></option>
             </datalist>
           </label>
+        </div>
+
+        <div class="grid2">
           <label>發布者頭貼（會自動裁成圓形用的正方形）
             <input type="file" id="f_avatar_file" accept="image/*" onchange="pickAvatar(this)">
           </label>
-        </div>
-        <div class="avatarRow">
-          <img id="f_avatar_prev" class="avatar" alt="" hidden>
-          <button class="ghost" type="button" onclick="clearAvatar()">移除頭貼</button>
+          <div class="avatarRow">
+            <img id="f_avatar_prev" class="avatar" alt="" hidden>
+            <button class="ghost" type="button" onclick="clearAvatar()">移除頭貼</button>
+          </div>
         </div>
 
         <label>標題（選填）<input id="f_title" maxlength="60"></label>
@@ -320,6 +329,7 @@ function renderUC(){
     const tags = `
       <span class="tag">公開：${esc(FAC[c.faction] || c.faction)}</span>
       ${c.is_undercover ? '<span class="tag warn">臥底</span>' : ''}
+      ${c.is_undercover && !c.revealed ? `<span class="tag warn">真實：${esc(FAC[c.true_faction] || c.true_faction)}</span>` : ''}
       ${c.revealed ? '<span class="tag ok">已揭露</span>' : ''}`;
     if(c.revealed) return `
       <div class="panel">
@@ -370,15 +380,30 @@ async function revealUC(id){
 async function ensureChars(){
   if(!CHARS.length){ const r = await adminApi('list-characters'); if(r.ok) CHARS = r.data.items; }
 }
-function fillAudience(){
-  const cur = $('f_audience').value;
+
+// 受眾複選：陣營（公開）、隱藏陣營（真實）、個別角色；任一符合即可看到
+function fillAudience(sel = ['all']){
   const opts = [['all', '全體'],
     ...Object.entries(FAC).map(([k, v]) => ['faction:' + k, '陣營：' + v]),
     ...Object.entries(FAC).map(([k, v]) => ['secret:' + k, '【隱藏】真實陣營：' + v]),
     ...CHARS.map(c => ['char:' + c.id, '角色：' + c.name])];
-  $('f_audience').innerHTML = opts.map(([v, t]) => `<option value="${esc(v)}">${esc(t)}</option>`).join('');
-  if(cur) $('f_audience').value = cur;
+  $('f_audience_box').innerHTML = opts.map(([v, t]) => `
+    <label>
+      <input type="checkbox" class="aud" value="${esc(v)}" ${sel.includes(v) ? 'checked' : ''} onchange="audChanged(this)">
+      ${esc(t)}
+    </label>`).join('');
 }
+function audChanged(el){
+  if(el.value === 'all' && el.checked){
+    document.querySelectorAll('.aud').forEach(b => { if(b !== el) b.checked = false; });
+  } else if(el.checked){
+    document.querySelectorAll('.aud').forEach(b => { if(b.value === 'all') b.checked = false; });
+  }
+}
+function getAudience(){
+  return [...document.querySelectorAll('.aud:checked')].map(b => b.value);
+}
+
 function localInput(iso){
   const d = new Date(iso);
   return new Date(d - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
@@ -441,13 +466,15 @@ function resetForm(){
   $('f_publisher').value = DEFAULT_PUBLISHER;
   $('f_publish').value = localInput(new Date().toISOString());
   clearAvatar();
+  fillAudience(['all']);
   $('formTitle').textContent = '新增內容';
   kindChanged(); renderPreview();
 }
 
 async function loadNews(){
   await ensureChars();
-  fillAudience();
+  const keep = getAudience();
+  fillAudience(keep.length ? keep : ['all']);
   if(!$('f_publish').value) resetForm();
   const r = await adminApi('list-announcements');
   if(!r.ok){ say($('newsMsg'), r.data.error || '讀取失敗'); return; }
@@ -460,6 +487,7 @@ async function loadNews(){
         <span class="tag">${n.status === 'published' ? '已發布' : '草稿'}</span>
         <div class="note">
           ${esc(n.publisher || '未填發布者')} ・ ${new Date(n.publish_at).toLocaleString('zh-TW')}
+          ・ 受眾：${esc(String(n.audience || '').split(',').join('、'))}
           ${n.kind === 'vote' ? ' ・ 投票 ' + n.votes + ' 票' : n.kind === 'puzzle' ? ' ・ 已解開 ' + n.solved + ' 人' : ''}
         </div>
       </div>
@@ -475,7 +503,7 @@ function editNews(id){
   const n = NEWS.find(x => x.id === id);
   if(!n) return;
   $('f_id').value = n.id; $('f_kind').value = n.kind; $('f_status').value = n.status;
-  fillAudience(); $('f_audience').value = n.audience;
+  fillAudience(String(n.audience || 'all').split(','));
   $('f_publish').value = localInput(n.publish_at);
   $('f_publisher').value = n.publisher || '';
   AVATAR = n.publisher_avatar || ''; showAvatar();
@@ -489,11 +517,13 @@ function editNews(id){
 }
 
 async function saveNews(){
+  const audList = getAudience();
+  if(!audList.length){ say($('newsMsg'), '請至少選一個受眾'); return; }
   const item = {
     id: $('f_id').value || undefined,
     kind: $('f_kind').value,
     status: $('f_status').value,
-    audience: $('f_audience').value,
+    audience: audList.join(','),
     publish_at: $('f_publish').value ? new Date($('f_publish').value).toISOString() : undefined,
     publisher: $('f_publisher').value.trim(),
     avatar: AVATAR,
