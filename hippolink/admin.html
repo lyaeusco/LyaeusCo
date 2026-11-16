@@ -42,7 +42,7 @@
   .stack{display:flex;flex-direction:column;gap:12px}
   .audBox{display:flex;flex-direction:column;gap:6px;border:1px solid var(--line);padding:10px;max-height:260px;overflow:auto}
   .audBox label{flex-direction:row;align-items:center;gap:8px;color:var(--fg);font-size:14px}
-  .avatarRow{display:flex;align-items:center;gap:10px}
+  .avatarRow{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
   .avatar{width:56px;height:56px;border-radius:50%;object-fit:cover;background:var(--panel2);border:1px solid var(--line)}
   @media (max-width:480px){.grid2,.grid3{grid-template-columns:1fr}}
   [hidden]{display:none!important}
@@ -121,22 +121,20 @@
         <div class="grid2">
           <label>發布時間<input type="datetime-local" id="f_publish"></label>
           <label>發布者（可選常用，也可自己輸入）
-            <input id="f_publisher" list="pubList" maxlength="30">
-            <datalist id="pubList">
-              <option value="解憂者有限公司"></option>
-              <option value="秩序局"></option>
-            </datalist>
+            <input id="f_publisher" list="pubList" maxlength="30" oninput="pubChanged()" onchange="pubChanged()">
+            <datalist id="pubList"></datalist>
           </label>
         </div>
 
-        <div class="grid2">
-          <label>發布者頭貼（會自動裁成圓形用的正方形）
-            <input type="file" id="f_avatar_file" accept="image/*" onchange="pickAvatar(this)">
-          </label>
+        <div class="stack">
+          <span class="note" id="pubHint"></span>
           <div class="avatarRow">
             <img id="f_avatar_prev" class="avatar" alt="" hidden>
-            <button class="ghost" type="button" onclick="clearAvatar()">移除頭貼</button>
+            <input type="file" id="f_avatar_file" accept="image/*" onchange="pickAvatar(this)" style="width:auto">
+            <button class="ghost" type="button" onclick="clearAvatar()">移除本次頭貼</button>
+            <button class="danger" type="button" id="pubForget" onclick="forgetPub()" hidden>忘記此發布者頭貼</button>
           </div>
+          <p class="note">選了頭貼且有填發布者名稱時，會自動記住，之後選同名發布者就會套用。</p>
         </div>
 
         <label>標題（選填）<input id="f_title" maxlength="60"></label>
@@ -195,6 +193,7 @@
 const API = 'https://tpmzbscqerteskakwfpd.supabase.co/functions/v1/';
 const KEY = 'sb_publishable_jO7lG-qxUbq1t2bK5R23Fw_u7zVMivM';
 const LS = 'lyaeus.admin.v1';
+const PUB_LS = 'lyaeus.publishers.v1';
 const FNS = ['admin', 'undercover', 'get-state', 'submit', 'save-card', 'claim-code'];
 const FAC = { employee: '解憂者員工', enforcer: '執法者', citizen: '一般市民', rebel: '反抗者', other: '其他' };
 const KIND = { announcement: '公告', puzzle: '解謎', vote: '投票' };
@@ -240,7 +239,7 @@ async function login(){
   $('code').value = '';
   start();
 }
-function start(){ $('login').hidden = true; $('app').hidden = false; tab('chars'); }
+function start(){ $('login').hidden = true; $('app').hidden = false; renderPubList(); tab('chars'); }
 function logout(){
   CODE = null;
   try{ localStorage.removeItem(LS); }catch(e){}
@@ -404,6 +403,49 @@ function getAudience(){
   return [...document.querySelectorAll('.aud:checked')].map(b => b.value);
 }
 
+/* ===== 發布者與頭貼（記在這台裝置） ===== */
+function getPubs(){
+  try{ return JSON.parse(localStorage.getItem(PUB_LS)) || {}; }catch(e){ return {}; }
+}
+function setPubs(o){
+  try{ localStorage.setItem(PUB_LS, JSON.stringify(o)); }catch(e){}
+}
+function renderPubList(){
+  const names = [...new Set([DEFAULT_PUBLISHER, '秩序局', ...Object.keys(getPubs())])];
+  $('pubList').innerHTML = names.map(n => `<option value="${esc(n)}"></option>`).join('');
+}
+function pubChanged(){
+  const name = $('f_publisher').value.trim();
+  const saved = getPubs()[name];
+  if(saved){ AVATAR = saved; showAvatar(); }
+  updatePubHint();
+}
+function updatePubHint(){
+  const name = $('f_publisher').value.trim();
+  const has = !!getPubs()[name];
+  $('pubForget').hidden = !has;
+  $('pubHint').textContent = !name ? '' : has ? `已記住「${name}」的頭貼，會自動套用` : `「${name}」還沒有記住的頭貼`;
+}
+function rememberPub(name, avatar){
+  if(!name || !avatar) return;
+  const o = getPubs();
+  o[name] = avatar;
+  setPubs(o);
+  renderPubList();
+  updatePubHint();
+}
+function forgetPub(){
+  const name = $('f_publisher').value.trim();
+  if(!name) return;
+  if(!confirm(`確定要忘記「${name}」的頭貼？`)) return;
+  const o = getPubs();
+  delete o[name];
+  setPubs(o);
+  clearAvatar();
+  renderPubList();
+  updatePubHint();
+}
+
 function localInput(iso){
   const d = new Date(iso);
   return new Date(d - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
@@ -445,7 +487,11 @@ function pickAvatar(input){
   const file = input.files && input.files[0];
   if(!file) return;
   resizeImage(file)
-    .then(d => { AVATAR = d; showAvatar(); })
+    .then(d => {
+      AVATAR = d;
+      showAvatar();
+      rememberPub($('f_publisher').value.trim(), d);
+    })
     .catch(() => say($('newsMsg'), '頭貼讀取失敗，請換一張圖片'));
 }
 function clearAvatar(){
@@ -465,7 +511,10 @@ function resetForm(){
   $('f_answer').value = ''; $('f_hint').value = ''; $('f_options').value = '';
   $('f_publisher').value = DEFAULT_PUBLISHER;
   $('f_publish').value = localInput(new Date().toISOString());
-  clearAvatar();
+  AVATAR = '';
+  $('f_avatar_file').value = '';
+  pubChanged();
+  showAvatar();
   fillAudience(['all']);
   $('formTitle').textContent = '新增內容';
   kindChanged(); renderPreview();
@@ -475,6 +524,7 @@ async function loadNews(){
   await ensureChars();
   const keep = getAudience();
   fillAudience(keep.length ? keep : ['all']);
+  renderPubList();
   if(!$('f_publish').value) resetForm();
   const r = await adminApi('list-announcements');
   if(!r.ok){ say($('newsMsg'), r.data.error || '讀取失敗'); return; }
@@ -506,7 +556,9 @@ function editNews(id){
   fillAudience(String(n.audience || 'all').split(','));
   $('f_publish').value = localInput(n.publish_at);
   $('f_publisher').value = n.publisher || '';
-  AVATAR = n.publisher_avatar || ''; showAvatar();
+  AVATAR = n.publisher_avatar || getPubs()[n.publisher] || '';
+  showAvatar();
+  updatePubHint();
   $('f_title').value = n.title || ''; $('f_body').value = n.body || '';
   $('f_q').value = n.payload?.q || '';
   $('f_answer').value = n.answer || ''; $('f_hint').value = n.hint || '';
@@ -519,14 +571,16 @@ function editNews(id){
 async function saveNews(){
   const audList = getAudience();
   if(!audList.length){ say($('newsMsg'), '請至少選一個受眾'); return; }
+  const publisher = $('f_publisher').value.trim();
+  const avatar = AVATAR || getPubs()[publisher] || '';
   const item = {
     id: $('f_id').value || undefined,
     kind: $('f_kind').value,
     status: $('f_status').value,
     audience: audList.join(','),
     publish_at: $('f_publish').value ? new Date($('f_publish').value).toISOString() : undefined,
-    publisher: $('f_publisher').value.trim(),
-    avatar: AVATAR,
+    publisher,
+    avatar,
     title: $('f_title').value.trim(),
     body: $('f_body').value,
     q: $('f_q').value,
