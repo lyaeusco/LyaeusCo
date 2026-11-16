@@ -55,6 +55,7 @@
   .barHead > span:first-child{overflow-wrap:anywhere;min-width:0}
   .bar{height:14px;background:var(--panel2);border:1px solid var(--line);min-width:0}
   .bar > span{display:block;height:100%;background:var(--accent);max-width:100%}
+  .voters{font-size:13px;color:var(--fg);overflow-wrap:anywhere}
   @media (max-width:480px){.grid2,.grid3{grid-template-columns:1fr} .tiles{grid-template-columns:repeat(3,minmax(0,1fr))}}
   [hidden]{display:none!important}
 </style>
@@ -181,6 +182,10 @@
             <button class="ghost" onclick="closeResults()">關閉</button>
           </div>
         </div>
+        <label class="check">
+          <input type="checkbox" id="revealToggle" onchange="toggleReveal(this.checked)">
+          顯示角色姓名（關閉時只顯示匿名統計）
+        </label>
         <div id="resultBody"></div>
       </div>
 
@@ -222,6 +227,7 @@ const API = 'https://tpmzbscqerteskakwfpd.supabase.co/functions/v1/';
 const KEY = 'sb_publishable_jO7lG-qxUbq1t2bK5R23Fw_u7zVMivM';
 const LS = 'lyaeus.admin.v1';
 const PUB_LS = 'lyaeus.publishers.v1';
+const REVEAL_LS = 'lyaeus.reveal.v1';
 const FNS = ['admin', 'undercover', 'get-state', 'submit', 'save-card', 'claim-code'];
 const FAC = { employee: '解憂者員工', enforcer: '執法者', citizen: '一般市民', rebel: '反抗者', other: '其他' };
 const KIND = { announcement: '公告', puzzle: '解謎', vote: '投票' };
@@ -238,7 +244,7 @@ function mdText(s){
 }
 const md = s => DOMPurify.sanitize(mdText(s));
 
-let CODE = null, CHARS = [], NEWS = [], PENDING = [], AVATAR = '', UC = [], RESULT_ID = null;
+let CODE = null, CHARS = [], NEWS = [], PENDING = [], AVATAR = '', UC = [], RESULT_ID = null, RESULT_DATA = null;
 
 async function api(fn, method, body){
   try{
@@ -649,7 +655,14 @@ async function loadAudit(){
     : '<p class="note">讀取失敗</p>';
 }
 
-/* ===== 結果視覺化 ===== */
+/* ===== 結果視覺化與可見性 ===== */
+function revealOn(){
+  try{ return localStorage.getItem(REVEAL_LS) === '1'; }catch(e){ return false; }
+}
+function toggleReveal(on){
+  try{ localStorage.setItem(REVEAL_LS, on ? '1' : '0'); }catch(e){}
+  renderResult();
+}
 function showResults(id){
   const n = NEWS.find(x => x.id === id);
   RESULT_ID = id;
@@ -660,6 +673,7 @@ function showResults(id){
 }
 function closeResults(){
   RESULT_ID = null;
+  RESULT_DATA = null;
   $('resultPanel').hidden = true;
   $('resultBody').innerHTML = '';
 }
@@ -668,19 +682,33 @@ async function refreshResults(){
   $('resultBody').innerHTML = '<p class="note">載入中…</p>';
   const r = await adminApi('announcement-results', { id: RESULT_ID });
   if(!r.ok){ $('resultBody').innerHTML = `<p class="bad">${esc(r.data.error || '讀取失敗')}</p>`; return; }
-  const d = r.data;
-  if(d.kind === 'vote') $('resultBody').innerHTML = voteHtml(d);
-  else if(d.kind === 'puzzle') $('resultBody').innerHTML = puzzleHtml(d);
-  else $('resultBody').innerHTML = `<p class="note">${esc(d.message || '這類內容沒有結果。')}</p>`;
+  RESULT_DATA = r.data;
+  renderResult();
 }
-function voteHtml(d){
+// 切換可見性時不重新讀取，只用已取得的資料重畫
+function renderResult(){
+  if(!RESULT_DATA) return;
+  const on = revealOn();
+  $('revealToggle').checked = on;
+  const d = RESULT_DATA;
+  let body;
+  if(d.kind === 'vote') body = voteHtml(d, on);
+  else if(d.kind === 'puzzle') body = puzzleHtml(d, on);
+  else body = `<p class="note">${esc(d.message || '這類內容沒有結果。')}</p>`;
+  $('resultBody').innerHTML = body;
+}
+function voteHtml(d, on){
   if(!d.options.length) return '<p class="note">這則投票沒有選項。</p>';
   const rows = d.options.map(o => {
     const pct = d.total ? Math.round(o.count / d.total * 100) : 0;
+    const names = on
+      ? (o.voters.length ? `<div class="voters">${o.voters.map(esc).join('、')}</div>` : '<div class="note">沒有人投這個選項</div>')
+      : '';
     return `
       <div class="barRow">
         <div class="barHead"><span>${esc(o.label)}</span><span class="fn">${o.count} 票 ・ ${pct}%</span></div>
         <div class="bar"><span style="width:${pct}%"></span></div>
+        ${names}
       </div>`;
   }).join('');
   return `
@@ -689,14 +717,14 @@ function voteHtml(d){
       <div class="tile"><b>${d.options.length}</b><span>選項數</span></div>
       <div class="tile"><b>${d.total ? Math.max(...d.options.map(o => o.count)) : 0}</b><span>最高票</span></div>
     </div>
-    <p class="note">投票為匿名，只顯示各選項的票數。</p>
+    <p class="note">${on ? '目前顯示投票者姓名。' : '目前為匿名模式，只顯示各選項的票數。'}</p>
     <div class="stack">${rows}</div>`;
 }
-function puzzleHtml(d){
+function puzzleHtml(d, on){
   const rate = d.attempted ? Math.round(d.solved / d.attempted * 100) : 0;
-  const list = d.players.map(p => `
+  const list = d.players.map((p, i) => `
     <div class="row">
-      <div><b>${esc(p.name)}</b> <span class="tag">作答 ${p.attempts} 次</span></div>
+      <div><b>${on ? esc(p.name) : '角色 ' + (i + 1)}</b> <span class="tag">作答 ${p.attempts} 次</span></div>
       ${p.solved ? '<span class="ok">✓ 已解開</span>' : '<span class="note">尚未解開</span>'}
     </div>`).join('');
   return `
@@ -709,7 +737,7 @@ function puzzleHtml(d){
       <div class="barHead"><span>解開率</span><span class="fn">${d.solved} / ${d.attempted}</span></div>
       <div class="bar"><span style="width:${rate}%"></span></div>
     </div>
-    <p class="note">總作答次數：${d.total_attempts}</p>
+    <p class="note">總作答次數：${d.total_attempts} ・ ${on ? '目前顯示角色姓名。' : '目前為匿名模式。'}</p>
     <div class="stack">${list || '<p class="note">還沒有角色作答。</p>'}</div>`;
 }
 
