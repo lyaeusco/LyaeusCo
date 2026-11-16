@@ -226,7 +226,14 @@ const S = {code:null, data:null, active:null, tab:'news', pending:{}};
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 // 公告內容：Markdown 轉換後再過濾；若程式庫沒載入，退回純文字，避免整頁壞掉
-const md = s => { try{ return DOMPurify.sanitize(marked.parse(String(s ?? ''))); }catch(e){ return esc(s); } };
+function mdText(s){
+  const t = String(s ?? '').split('\n').map(line => {
+    const m = line.match(/^\s*-#\s+(.*)$/);
+    return m ? `<small>${m[1]}</small>` : line;
+  }).join('\n');
+  return marked.parse(t, {breaks:true});
+}
+const md = s => { try{ return DOMPurify.sanitize(mdText(s)); }catch(e){ return esc(s); } };
 
 /* ===== 呼叫後端 ===== */
 async function call(fn, body){
