@@ -73,6 +73,7 @@ input[type=text],textarea{width:100%;background:var(--panel2);border:1px solid v
 #v-card legend{font-family:var(--mono);font-size:.75rem;letter-spacing:.18em;color:var(--accent);padding:0 6px}
 #v-card label{display:flex;flex-direction:column;gap:4px;font-size:.82rem;color:var(--muted)}
 #v-card input[type=text],#v-card textarea{background:var(--panel2);border:1px solid var(--line);padding:9px 11px;width:100%;color:var(--fg)}
+#v-card select{background:var(--panel2);border:1px solid var(--line);padding:9px 11px;width:100%;color:var(--fg)}
 #v-card textarea{resize:vertical;min-height:4.5em}
 #v-card input[type=range]{width:100%;accent-color:var(--accent)}
 #v-card input[type=file]{color:var(--muted);font-size:.8rem}
@@ -92,6 +93,10 @@ input[type=text],textarea{width:100%;background:var(--panel2);border:1px solid v
 #v-card #out{margin-top:16px}
 #v-card #out img{width:100%;display:block;border:1px solid var(--line)}
 #v-card #saveMsg{font-size:.85rem;color:var(--muted);min-height:1.2em;margin:0}
+/* 臥底申報 */
+#v-card .dcCheck{flex-direction:row;align-items:center;gap:8px;color:var(--fg);font-size:.9rem}
+#v-card .dcCheck input{width:auto}
+#v-card .dcInfo{margin:0;font-size:.9rem}
 
 /* 公告內的 Markdown */
 .md{position:relative}
@@ -226,6 +231,25 @@ input[type=text],textarea{width:100%;background:var(--panel2);border:1px solid v
         <label>繪師／作者<input type="text" id="author" maxlength="20" placeholder="例如：@your_id"></label>
       </fieldset>
     </form>
+
+    <fieldset id="declareBox" hidden>
+      <legend>臥底申報</legend>
+      <div id="declareInfo"></div>
+      <div id="declareForm" hidden>
+        <label class="dcCheck"><input type="checkbox" id="dc_on"> 我是臥底</label>
+        <label>真實陣營
+          <select id="dc_faction">
+            <option value="employee">解憂者員工</option>
+            <option value="enforcer">執法者</option>
+            <option value="citizen">一般市民</option>
+            <option value="rebel">反抗者</option>
+          </select>
+        </label>
+        <p class="hint" style="margin:0">送出後無法自行更改，如需修改請聯絡管理者。</p>
+        <button class="btn" type="button" id="dcBtn" onclick="declareUC()">送出申報</button>
+        <p class="err" id="dcMsg" role="status"></p>
+      </div>
+    </fieldset>
   </section>
 </main>
 
@@ -353,6 +377,46 @@ function renderAll(){
     `<button class="chip" aria-pressed="${s.characters.id===S.active}" onclick="switchTo('${s.characters.id}')">${esc(s.characters.name)}</button>`
   ).join('');
   renderNews();
+  renderDeclare();
+}
+
+/* ===== 臥底申報（角色卡分頁內） ===== */
+function renderDeclare(){
+  const c = slotOf(S.active);
+  const box = $('declareBox');
+  if(!c){ box.hidden = true; return; }
+  box.hidden = false;
+  if(c.revealed){
+    $('declareInfo').innerHTML = '<p class="ok">此角色的臥底身分已揭露。</p>';
+    $('declareForm').hidden = true;
+    return;
+  }
+  if(c.declared || c.is_undercover){
+    const tf = c.my_true_faction
+      ? `<b>${esc(FAC_NAME[c.my_true_faction] || c.my_true_faction)}</b>`
+      : '由管理者設定';
+    $('declareInfo').innerHTML = `
+      <p class="ok" style="margin:0">已登記為臥底，真實陣營：${tf}</p>
+      <p class="hint" style="margin:0">已送出，無法自行更改；如需修改請聯絡管理者。</p>`;
+    $('declareForm').hidden = true;
+    return;
+  }
+  $('declareInfo').innerHTML = '<p class="hint" style="margin:0">如果你是臥底，請勾選並選擇真實陣營。</p>';
+  $('declareForm').hidden = false;
+}
+async function declareUC(){
+  const c = slotOf(S.active);
+  if(!c) return;
+  if(!$('dc_on').checked){ $('dcMsg').textContent = '請先勾選「我是臥底」'; return; }
+  const tf = $('dc_faction').value;
+  if(!confirm(`確定要申報「${c.name}」為臥底嗎？\n真實陣營：${FAC_NAME[tf]}\n\n送出後無法自行更改，如需修改請聯絡管理者。`)) return;
+  $('dcBtn').disabled = true;
+  const r = await call('declare-undercover', {code:S.code, character_id:S.active, true_faction:tf});
+  $('dcBtn').disabled = false;
+  if(!r.ok){ $('dcMsg').textContent = r.data.error || '申報失敗'; return; }
+  $('dcMsg').textContent = '';
+  await fetchState(S.active, false);
+  renderAll();
 }
 
 /* ===== 公告區：公告、解謎、投票（資料來自後端） ===== */
