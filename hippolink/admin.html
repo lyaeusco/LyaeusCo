@@ -45,7 +45,17 @@
   .audBox label{flex-direction:row;align-items:center;gap:8px;color:var(--fg);font-size:14px}
   .avatarRow{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
   .avatar{width:56px;height:56px;border-radius:50%;object-fit:cover;background:var(--panel2);border:1px solid var(--line)}
-  @media (max-width:480px){.grid2,.grid3{grid-template-columns:1fr}}
+  /* 結果視覺化 */
+  .tiles{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+  .tile{border:1px solid var(--line);padding:10px 6px;text-align:center;min-width:0}
+  .tile b{display:block;font-size:22px;color:var(--accent);font-family:ui-monospace,Menlo,monospace}
+  .tile span{font-size:12px;color:var(--muted)}
+  .barRow{display:flex;flex-direction:column;gap:4px}
+  .barHead{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;min-width:0}
+  .barHead > span:first-child{overflow-wrap:anywhere;min-width:0}
+  .bar{height:14px;background:var(--panel2);border:1px solid var(--line);min-width:0}
+  .bar > span{display:block;height:100%;background:var(--accent);max-width:100%}
+  @media (max-width:480px){.grid2,.grid3{grid-template-columns:1fr} .tiles{grid-template-columns:repeat(3,minmax(0,1fr))}}
   [hidden]{display:none!important}
 </style>
 </head>
@@ -116,7 +126,7 @@
 
         <label class="check" id="glitchBox">
           <input type="checkbox" id="f_glitch">
-          故障雜訊效果（只對公告有效，玩家打開時閃一下）
+          故障雜訊效果（只對公告有效，平時靜止，隨機抖動）
         </label>
 
         <div class="stack">
@@ -160,6 +170,17 @@
 
         <p class="msg" id="newsMsg"></p>
         <button onclick="saveNews()">儲存</button>
+      </div>
+
+      <div class="panel" id="resultPanel" hidden>
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
+          <h2 id="resultTitle">結果</h2>
+          <div style="display:flex;gap:8px">
+            <button class="ghost" onclick="refreshResults()">重新整理</button>
+            <button class="ghost" onclick="closeResults()">關閉</button>
+          </div>
+        </div>
+        <div id="resultBody"></div>
       </div>
 
       <div class="panel">
@@ -216,7 +237,7 @@ function mdText(s){
 }
 const md = s => DOMPurify.sanitize(mdText(s));
 
-let CODE = null, CHARS = [], NEWS = [], PENDING = [], AVATAR = '', UC = [];
+let CODE = null, CHARS = [], NEWS = [], PENDING = [], AVATAR = '', UC = [], RESULT_ID = null;
 
 async function api(fn, method, body){
   try{
@@ -551,7 +572,8 @@ async function loadNews(){
           ${n.kind === 'vote' ? ' ・ 投票 ' + n.votes + ' 票' : n.kind === 'puzzle' ? ' ・ 已解開 ' + n.solved + ' 人' : ''}
         </div>
       </div>
-      <div style="display:flex;gap:8px">
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        ${n.kind !== 'announcement' ? `<button class="ghost" onclick="showResults('${n.id}')">結果</button>` : ''}
         <button class="ghost" onclick="editNews('${n.id}')">編輯</button>
         <button class="danger" onclick="deleteNews('${n.id}')">刪除</button>
       </div>
@@ -611,6 +633,7 @@ async function deleteNews(id){
   if(!confirm(`確定要刪除「${n?.title || '這則內容'}」？投票與解謎紀錄也會一起刪除。`)) return;
   const r = await adminApi('delete-announcement', { id });
   if(!r.ok){ alert(r.data.error || '刪除失敗'); return; }
+  if(RESULT_ID === id) closeResults();
   loadNews();
 }
 async function loadAudit(){
@@ -620,6 +643,70 @@ async function loadAudit(){
         <div class="row"><div><span class="fn">${esc(x.action)}</span>
         <div class="note">${new Date(x.at).toLocaleString('zh-TW')}</div></div></div>`).join('') || '<p class="note">沒有紀錄</p>')
     : '<p class="note">讀取失敗</p>';
+}
+
+/* ===== 結果視覺化 ===== */
+function showResults(id){
+  const n = NEWS.find(x => x.id === id);
+  RESULT_ID = id;
+  $('resultPanel').hidden = false;
+  $('resultTitle').textContent = `結果：${n?.title || KIND[n?.kind] || ''}`;
+  refreshResults();
+  $('resultPanel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+function closeResults(){
+  RESULT_ID = null;
+  $('resultPanel').hidden = true;
+  $('resultBody').innerHTML = '';
+}
+async function refreshResults(){
+  if(!RESULT_ID) return;
+  $('resultBody').innerHTML = '<p class="note">載入中…</p>';
+  const r = await adminApi('announcement-results', { id: RESULT_ID });
+  if(!r.ok){ $('resultBody').innerHTML = `<p class="bad">${esc(r.data.error || '讀取失敗')}</p>`; return; }
+  const d = r.data;
+  if(d.kind === 'vote') $('resultBody').innerHTML = voteHtml(d);
+  else if(d.kind === 'puzzle') $('resultBody').innerHTML = puzzleHtml(d);
+  else $('resultBody').innerHTML = `<p class="note">${esc(d.message || '這類內容沒有結果。')}</p>`;
+}
+function voteHtml(d){
+  if(!d.options.length) return '<p class="note">這則投票沒有選項。</p>';
+  const rows = d.options.map(o => {
+    const pct = d.total ? Math.round(o.count / d.total * 100) : 0;
+    return `
+      <div class="barRow">
+        <div class="barHead"><span>${esc(o.label)}</span><span class="fn">${o.count} 票 ・ ${pct}%</span></div>
+        <div class="bar"><span style="width:${pct}%"></span></div>
+      </div>`;
+  }).join('');
+  return `
+    <div class="tiles">
+      <div class="tile"><b>${d.total}</b><span>總票數</span></div>
+      <div class="tile"><b>${d.options.length}</b><span>選項數</span></div>
+      <div class="tile"><b>${d.total ? Math.max(...d.options.map(o => o.count)) : 0}</b><span>最高票</span></div>
+    </div>
+    <p class="note">投票為匿名，只顯示各選項的票數。</p>
+    <div class="stack">${rows}</div>`;
+}
+function puzzleHtml(d){
+  const rate = d.attempted ? Math.round(d.solved / d.attempted * 100) : 0;
+  const list = d.players.map(p => `
+    <div class="row">
+      <div><b>${esc(p.name)}</b> <span class="tag">作答 ${p.attempts} 次</span></div>
+      ${p.solved ? '<span class="ok">✓ 已解開</span>' : '<span class="note">尚未解開</span>'}
+    </div>`).join('');
+  return `
+    <div class="tiles">
+      <div class="tile"><b>${d.attempted}</b><span>作答角色</span></div>
+      <div class="tile"><b>${d.solved}</b><span>已解開</span></div>
+      <div class="tile"><b>${rate}%</b><span>解開率</span></div>
+    </div>
+    <div class="barRow">
+      <div class="barHead"><span>解開率</span><span class="fn">${d.solved} / ${d.attempted}</span></div>
+      <div class="bar"><span style="width:${rate}%"></span></div>
+    </div>
+    <p class="note">總作答次數：${d.total_attempts}</p>
+    <div class="stack">${list || '<p class="note">還沒有角色作答。</p>'}</div>`;
 }
 
 /* ===== 健康檢查 ===== */
