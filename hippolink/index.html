@@ -318,7 +318,12 @@ function renderNews(){
       if(it.kind === 'announcement') return `
         <article class="item">
           <time>${new Date(it.publish_at).toLocaleString('zh-TW')}</time>
-          <h3 style="font-size:18px">${esc(it.title)}</h3>
+          ${it.publisher ? `
+            <div style="display:flex;align-items:center;gap:8px">
+              ${it.publisher_avatar ? `<img src="${esc(it.publisher_avatar)}" alt="" style="width:32px;height:32px;border-radius:50%;object-fit:cover">` : ''}
+              <span style="color:var(--fg);font-weight:500">${esc(it.publisher)}</span>
+            </div>` : ''}
+          ${it.title ? `<h3 style="font-size:18px">${esc(it.title)}</h3>` : ''}
           <div class="md" style="font-size:15px">${md(it.body)}</div>
         </article>`;
       if(it.kind === 'puzzle') return `
