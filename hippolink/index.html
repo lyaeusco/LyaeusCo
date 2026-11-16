@@ -190,7 +190,7 @@ input[type=text],textarea{width:100%;background:var(--panel2);border:1px solid v
           <label>左右<input type="range" id="ox" min="-1" max="1" step="0.01" value="0"></label>
           <label>上下<input type="range" id="oy" min="-1" max="1" step="0.01" value="0"></label>
         </div>
-        <p class="hint" style="margin:0">立繪目前只存在你的瀏覽器裡，不會上傳到伺服器。</p>
+        <p class="hint" style="margin:0">立繪只會記在這台裝置的瀏覽器裡，不會上傳到伺服器。換裝置或清除瀏覽器資料後，需要重新上傳。</p>
         <label>或用文字描述外觀<textarea id="look" maxlength="160" placeholder="沒有立繪時，這段文字會顯示在立繪區。"></textarea></label>
         <span class="count" id="lookC"></span>
         <button class="btn ghost" type="button" id="clearImg" style="align-self:flex-start">移除圖片，改用文字</button>
@@ -509,7 +509,7 @@ async function vote(itemId, choice){
   renderNews();
 }
 
-/* ===== 角色卡：產生器（資料來自後端，儲存時會寫回後端） ===== */
+/* ===== 角色卡：產生器（文字資料存在後端；立繪只存在這台裝置） ===== */
 const CARD = (function(){
   var TH={
     employee:{bg:'#e08aad',ink:'#121014',muted:'#121014',line:'#121014',panel:'#121014',panelFg:'#efe8f1',panelAcc:'#e08aad',chipBg:'#121014',chipFg:'#e08aad',pBg:'#121014',pFg:'#6f6573',label:'解憂者員工',num:'FACTION 01',head:'解憂者有限公司 · 角色卡'},
@@ -523,6 +523,22 @@ const CARD = (function(){
   var cv=$('cv'), x=cv.getContext('2d');
   var logo=new Image(); logo.onload=function(){draw()}; logo.src='logo.png';
   var portraits={}, cur=null, portrait=null, pstate={}, saveTimer=null;
+
+  /* 立繪與位置記在這台裝置的瀏覽器（每個角色分開存） */
+  var PLS='lyaeus.portrait.v1.', SLS='lyaeus.pstate.v1.';
+  function lsGet(k){ try{ return localStorage.getItem(k) }catch(e){ return null } }
+  function lsSet(k,v){ try{ localStorage.setItem(k,v); return true }catch(e){ return false } }
+  function lsDel(k){ try{ localStorage.removeItem(k) }catch(e){} }
+  // 縮到最長邊 1600 像素再存，避免超過瀏覽器容量；透明背景會填上陣營的立繪底色
+  function shrink(im){
+    var M=1600, s=Math.min(1, M/Math.max(im.width, im.height));
+    var c=document.createElement('canvas');
+    c.width=Math.max(1,Math.round(im.width*s)); c.height=Math.max(1,Math.round(im.height*s));
+    var g=c.getContext('2d');
+    g.fillStyle=(TH[radio('faction')]||TH.employee).pBg; g.fillRect(0,0,c.width,c.height);
+    g.drawImage(im,0,0,c.width,c.height);
+    return c.toDataURL('image/jpeg',0.85);
+  }
 
   function radio(n){var r=document.querySelector('input[name="'+n+'"]:checked');return r?r.value:null}
   function val(id){return $(id).value.trim()}
@@ -626,9 +642,24 @@ const CARD = (function(){
     document.querySelectorAll('input[name="faction"]').forEach(function(r){ r.disabled = true });
     var dep = card.deposit ?? '1';
     var d = document.querySelector('input[name="deposit"][value="'+dep+'"]'); if(d) d.checked = true;
-    var p = pstate[charId] || {zoom:1, ox:0, oy:0};
+
+    // 立繪位置：先看這次開啟時的記錄，沒有再讀裝置裡存的
+    var p = pstate[charId];
+    if(!p){ try{ p = JSON.parse(lsGet(SLS+charId)) }catch(e){ p = null } }
+    p = p || {zoom:1, ox:0, oy:0};
+    pstate[charId] = p;
     $('zoom').value = p.zoom; $('ox').value = p.ox; $('oy').value = p.oy;
+
+    // 立繪：先看這次開啟時載入過的，沒有再讀裝置裡存的
     portrait = portraits[charId] || null;
+    if(!portrait){
+      var saved = lsGet(PLS+charId);
+      if(saved){
+        var im = new Image();
+        im.onload = function(){ portraits[charId] = im; if(cur === charId){ portrait = im; draw(); } };
+        im.src = saved;
+      }
+    }
     draw();
   }
   function collect(){
@@ -648,6 +679,7 @@ const CARD = (function(){
   }
   function onChange(){
     pstate[cur] = {zoom:+$('zoom').value, ox:+$('ox').value, oy:+$('oy').value};
+    lsSet(SLS+cur, JSON.stringify(pstate[cur]));
     draw();
     scheduleSave();
   }
@@ -655,23 +687,44 @@ const CARD = (function(){
   $('f').addEventListener('input', onChange);
   $('f').addEventListener('change', onChange);
   $('f').addEventListener('submit', function(e){ e.preventDefault() });
-  $('clearImg').onclick = function(){ portrait = null; delete portraits[cur]; $('img').value=''; draw() };
+  $('clearImg').onclick = function(){
+    portrait = null; delete portraits[cur]; lsDel(PLS+cur);
+    $('img').value=''; draw();
+  };
   $('genId').onclick = function(){ $('hid').value = genId(); onChange() };
   $('img').onchange = function(){
     var file = this.files && this.files[0]; if(!file) return;
+    var id = cur;
     var r = new FileReader();
     r.onload = function(){
       var im = new Image();
-      im.onload = function(){ portraits[cur] = im; portrait = im; $('zoom').value=1; $('ox').value=0; $('oy').value=0; onChange() };
+      im.onload = function(){
+        var data = shrink(im);
+        var small = new Image();
+        small.onload = function(){
+          portraits[id] = small;
+          if(cur !== id) return;
+          portrait = small;
+          $('zoom').value=1; $('ox').value=0; $('oy').value=0;
+          onChange();
+          $('dlMsg').textContent = lsSet(PLS+id, data)
+            ? ''
+            : '立繪太大，無法記在這台裝置上；重新整理後需要重新上傳。';
+        };
+        small.src = data;
+      };
       im.src = r.result;
     };
     r.readAsDataURL(file);
   };
   $('reset').onclick = function(){
+    if(!confirm('確定要清空這張角色卡嗎？\n所有欄位和立繪都會被清除，而且無法復原。')) return;
     FIELDS.forEach(function(k){ $(k).value = '' });
     $('hid').value = genId();
-    $('memory').value = ''; delete portraits[cur]; delete pstate[cur];
+    delete portraits[cur]; delete pstate[cur];
+    lsDel(PLS+cur); lsDel(SLS+cur);
     portrait = null; $('img').value=''; $('out').hidden = true;
+    $('zoom').value=1; $('ox').value=0; $('oy').value=0;
     onChange();
   };
   $('dl').onclick = function(){
