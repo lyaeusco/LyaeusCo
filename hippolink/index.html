@@ -6,9 +6,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@600;900&family=Noto+Sans+TC:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
-<style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.2/marked.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.1.6/purify.min.js"></script>
+<style>
 /* layout: one phone column; two bottom tabs (公告 / 角色卡); dark ground with the company's pink accent */
 :root{
   --bg:#0f1318; --panel:#171d25; --panel2:#1d2530; --line:#2a3440;
@@ -91,6 +91,8 @@ input[type=text],textarea{width:100%;background:var(--panel2);border:1px solid v
 #v-card #out{margin-top:16px}
 #v-card #out img{width:100%;display:block;border:1px solid var(--line)}
 #v-card #saveMsg{font-size:.85rem;color:var(--muted);min-height:1.2em;margin:0}
+
+/* 公告內的 Markdown */
 .md p{margin:0 0 8px} .md a{color:var(--accent)} .md code{background:var(--panel2);padding:0 4px}
 .md ul,.md ol{padding-left:20px;margin:0 0 8px} .md blockquote{border-left:2px solid var(--line);margin:0 0 8px;padding-left:10px;color:var(--muted)}
 </style>
@@ -223,6 +225,8 @@ const LS_KEY = 'lyaeus.code.v1';
 const S = {code:null, data:null, active:null, tab:'news', pending:{}};
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+// 公告內容：Markdown 轉換後再過濾；若程式庫沒載入，退回純文字，避免整頁壞掉
+const md = s => { try{ return DOMPurify.sanitize(marked.parse(String(s ?? ''))); }catch(e){ return esc(s); } };
 
 /* ===== 呼叫後端 ===== */
 async function call(fn, body){
@@ -255,7 +259,7 @@ async function doLogin(){
   $('code').value = '';
   enter(r.data);
 }
-  function enter(d){
+function enter(d){
   S.data = d; S.active = d.active_character_id;
   $('login').hidden = true; $('app').hidden = false; $('dock').hidden = false;
   CARD.load(d.card, slotOf(S.active), S.active);
@@ -308,7 +312,6 @@ function renderAll(){
 }
 
 /* ===== 公告區：公告、解謎、投票（資料來自後端） ===== */
-const md = s => DOMPurify.sanitize(marked.parse(String(s ?? '')));
 function renderNews(){
   const items = S.data.items ?? [];
   $('v-news').innerHTML = `
@@ -485,7 +488,7 @@ const CARD = (function(){
     cur = charId;
     card = card || {};
     FIELDS.forEach(function(k){ $(k).value = card[k] ?? '' });
-      if(!card.name && slot) $('name').value = slot.name;
+    if(!card.name && slot) $('name').value = slot.name;
     if(!$('hid').value) $('hid').value = genId();
     var fac = slot ? slot.faction : 'employee';
     var f = document.querySelector('input[name="faction"][value="'+fac+'"]'); if(f) f.checked = true;
