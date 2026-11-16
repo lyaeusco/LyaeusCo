@@ -374,6 +374,7 @@ function fillAudience(){
   const cur = $('f_audience').value;
   const opts = [['all', '全體'],
     ...Object.entries(FAC).map(([k, v]) => ['faction:' + k, '陣營：' + v]),
+    ...Object.entries(FAC).map(([k, v]) => ['secret:' + k, '【隱藏】真實陣營：' + v]),
     ...CHARS.map(c => ['char:' + c.id, '角色：' + c.name])];
   $('f_audience').innerHTML = opts.map(([v, t]) => `<option value="${esc(v)}">${esc(t)}</option>`).join('');
   if(cur) $('f_audience').value = cur;
