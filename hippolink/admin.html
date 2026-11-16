@@ -177,7 +177,14 @@ const DEFAULT_PUBLISHER = '解憂者有限公司';
 
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const md = s => DOMPurify.sanitize(marked.parse(String(s ?? '')));
+function mdText(s){
+  const t = String(s ?? '').split('\n').map(line => {
+    const m = line.match(/^\s*-#\s+(.*)$/);
+    return m ? `<small>${m[1]}</small>` : line;
+  }).join('\n');
+  return marked.parse(t, {breaks:true});
+}
+const md = s => DOMPurify.sanitize(mdText(s));
 
 let CODE = null, CHARS = [], NEWS = [], PENDING = [], AVATAR = '';
 
