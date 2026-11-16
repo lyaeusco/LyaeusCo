@@ -51,6 +51,7 @@ input[type=text],textarea{width:100%;background:var(--panel2);border:1px solid v
 .opt{text-align:left;width:100%;background:transparent;border:1px solid var(--line);padding:10px 12px;cursor:pointer}
 .opt[aria-checked="true"]{border-color:var(--accent);background:rgba(224,137,172,.12)}
 .opt:disabled{cursor:default;opacity:.85}
+.reward{border:1px solid var(--ok);background:rgba(159,212,168,.07);padding:12px;display:flex;flex-direction:column;gap:6px;min-width:0}
 .dock{position:fixed;left:0;right:0;bottom:env(safe-area-inset-bottom,0px);background:var(--panel);border-top:1px solid var(--line);display:flex;justify-content:space-around;padding:6px max(8px,env(safe-area-inset-left,0px)) 6px max(8px,env(safe-area-inset-right,0px))}
 .tab{background:none;border:0;color:var(--muted);padding:8px 10px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:2px;min-width:0;font-size:13px;flex:1}
 .tab[aria-selected="true"]{color:var(--accent);font-weight:700}
@@ -385,7 +386,10 @@ function renderNews(){
           <time>解謎</time>
           <h3 style="font-size:18px">${esc(it.title)}</h3>
           <p style="margin:0">${esc(it.payload?.q)}</p>
-          ${it.solved ? `<p class="ok">✓ 這一題已由你的角色解開。</p>` : `
+          ${it.solved ? `
+            <p class="ok">✓ 這一題已由你的角色解開。</p>
+            ${it.reward ? `<div class="reward"><span class="mono" style="color:var(--ok)">解開獎勵</span><div class="md" style="font-size:15px">${md(it.reward)}</div></div>` : ''}
+          ` : `
             <div class="field"><label for="ans_${it.id}" class="mono">你的答案</label>
               <input id="ans_${it.id}" type="text" maxlength="30" autocomplete="off"></div>
             <div class="row"><button class="btn" onclick="solve('${it.id}')">送出</button></div>
