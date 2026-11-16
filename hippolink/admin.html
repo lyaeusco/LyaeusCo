@@ -56,7 +56,12 @@
   .bar{height:14px;background:var(--panel2);border:1px solid var(--line);min-width:0}
   .bar > span{display:block;height:100%;background:var(--accent);max-width:100%}
   .voters{font-size:13px;color:var(--fg);overflow-wrap:anywhere}
-  @media (max-width:480px){.grid2,.grid3{grid-template-columns:1fr} .tiles{grid-template-columns:repeat(3,minmax(0,1fr))}}
+  /* 角色卡檢視 */
+  .kv{display:grid;grid-template-columns:110px minmax(0,1fr);gap:6px 12px;font-size:14px}
+  .kv > div:nth-child(odd){color:var(--muted)}
+  .kv > div:nth-child(even){min-width:0;overflow-wrap:anywhere}
+  .pre{white-space:pre-wrap}
+  @media (max-width:480px){.grid2,.grid3{grid-template-columns:1fr} .tiles{grid-template-columns:repeat(3,minmax(0,1fr))} .kv{grid-template-columns:90px minmax(0,1fr)}}
   [hidden]{display:none!important}
 </style>
 </head>
@@ -92,6 +97,14 @@
         </div>
         <p class="msg" id="importMsg"></p>
         <div id="importPreview"></div>
+      </div>
+
+      <div class="panel" id="cardPanel" hidden>
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
+          <h2 id="cardTitle">角色卡</h2>
+          <button class="ghost" onclick="closeCard()">關閉</button>
+        </div>
+        <div id="cardBody"></div>
       </div>
 
       <div class="panel">
@@ -228,10 +241,11 @@ const KEY = 'sb_publishable_jO7lG-qxUbq1t2bK5R23Fw_u7zVMivM';
 const LS = 'lyaeus.admin.v1';
 const PUB_LS = 'lyaeus.publishers.v1';
 const REVEAL_LS = 'lyaeus.reveal.v1';
-const FNS = ['admin', 'undercover', 'get-state', 'submit', 'save-card', 'claim-code'];
+const FNS = ['admin', 'undercover', 'get-state', 'submit', 'save-card', 'claim-code', 'declare-undercover'];
 const FAC = { employee: '解憂者員工', enforcer: '執法者', citizen: '一般市民', rebel: '反抗者', other: '其他' };
 const KIND = { announcement: '公告', puzzle: '解謎', vote: '投票' };
 const DEFAULT_PUBLISHER = '解憂者有限公司';
+const DEP = ['富裕', '普通', '拮據', '負債'];
 
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -294,24 +308,100 @@ async function loadChars(){
   const r = await adminApi('list-characters');
   if(!r.ok){ $('charList').innerHTML = `<p class="bad">${esc(r.data.error || '讀取失敗')}</p>`; return; }
   CHARS = r.data.items;
-  $('charList').innerHTML = CHARS.map(c => `
+  $('charList').innerHTML = CHARS.map(c => {
+    const uc = c.is_undercover && !c.revealed
+      ? `<span class="tag warn">臥底 ・ 真實：${esc(FAC[c.true_faction] || c.true_faction)}</span>` : '';
+    const dec = c.declared_at && !c.revealed ? '<span class="tag warn">玩家已申報</span>' : '';
+    const rev = c.revealed ? '<span class="tag ok">已揭露</span>' : '';
+    return `
     <div class="row">
       <div>
-        <b>${esc(c.name)}</b> <span class="tag">${esc(FAC[c.faction] || c.faction)}</span>
+        <b>${esc(c.name)}</b> <span class="tag">${esc(FAC[c.faction] || c.faction)}</span> ${uc} ${dec} ${rev}
         <div class="note">
           ${c.discord_id ? 'Discord：' + esc(c.discord_id) : '<span class="warn">未綁定</span>'}
           ・ 角色卡：${c.has_card ? '已填' : '未填'}
           ・ 序號：${c.code_status === 'active' ? '<span class="ok">有效</span>' : c.code_status ? '<span class="bad">已停用</span>' : '無'}
         </div>
       </div>
-      ${c.code_status ? `<button class="${c.code_status === 'active' ? 'danger' : 'ghost'}"
-        onclick="toggleCode('${c.id}','${c.code_status === 'active' ? 'disabled' : 'active'}')">${c.code_status === 'active' ? '停用序號' : '啟用序號'}</button>` : ''}
-    </div>`).join('') || '<p class="note">還沒有角色</p>';
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="ghost" onclick="viewCard('${c.id}')">角色卡</button>
+        ${c.code_status ? `<button class="${c.code_status === 'active' ? 'danger' : 'ghost'}"
+          onclick="toggleCode('${c.id}','${c.code_status === 'active' ? 'disabled' : 'active'}')">${c.code_status === 'active' ? '停用序號' : '啟用序號'}</button>` : ''}
+      </div>
+    </div>`;
+  }).join('') || '<p class="note">還沒有角色</p>';
 }
 async function toggleCode(id, status){
   const r = await adminApi('set-code-status', { character_id: id, status });
   if(!r.ok){ alert(r.data.error || '失敗'); return; }
   loadChars();
+}
+
+/* 角色卡（唯讀檢視） */
+async function viewCard(id){
+  $('cardPanel').hidden = false;
+  $('cardTitle').textContent = '角色卡';
+  $('cardBody').innerHTML = '<p class="note">載入中…</p>';
+  const r = await adminApi('get-card', { character_id: id });
+  if(!r.ok){ $('cardBody').innerHTML = `<p class="bad">${esc(r.data.error || '讀取失敗')}</p>`; return; }
+  renderCard(r.data);
+  $('cardPanel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+function renderCard(d){
+  const c = d.character, k = d.card || {};
+  const kv = (label, v, cls = '') => `<div>${esc(label)}</div><div class="${cls}">${v ? esc(v) : '<span class="note">未填</span>'}</div>`;
+  const depIdx = Number(k.deposit);
+  const dep = DEP[depIdx] ?? '';
+  const traits = [k.t1, k.t2, k.t3].filter(Boolean).join('、');
+  $('cardTitle').textContent = `角色卡：${c.name}`;
+
+  let status = '';
+  if(c.revealed) status = '<p class="ok">臥底身分已揭露。</p>';
+  else if(c.is_undercover || c.declared_at) status = '<p class="warn">此角色已登記為臥底。</p>';
+  else status = '<p class="note">目前不是臥底。</p>';
+
+  const canReset = (c.is_undercover || c.declared_at) && !c.revealed;
+
+  $('cardBody').innerHTML = `
+    <div class="kv">
+      ${kv('公開陣營', FAC[c.faction] || c.faction)}
+      ${kv('角色姓名', k.name || c.name)}
+      ${kv('HippoLink ID', k.hid)}
+      ${kv('年齡', k.age)}
+      ${kv('性別', k.gender)}
+      ${kv('身高', k.height)}
+      ${kv('職業', k.job)}
+      ${kv('記憶存款', dep)}
+      ${kv('最珍惜的記憶', k.memory, 'pre')}
+      ${kv('性格', traits)}
+      ${kv('角色簡介', k.bio, 'pre')}
+      ${kv('繪師／作者', k.author)}
+      ${kv('外觀文字', k.look, 'pre')}
+    </div>
+    <p class="note">立繪只存在玩家自己的瀏覽器，後台無法查看。</p>
+    <div class="panel" style="background:var(--panel2)">
+      <h2 style="font-size:14px">臥底申報</h2>
+      ${status}
+      <div class="kv">
+        ${kv('是否臥底', c.is_undercover ? '是' : '否')}
+        ${kv('真實陣營', c.is_undercover ? (FAC[c.true_faction] || c.true_faction) : '')}
+        ${kv('玩家申報時間', c.declared_at ? new Date(c.declared_at).toLocaleString('zh-TW') : '')}
+      </div>
+      ${canReset ? `<div class="rowline"><button class="danger" onclick="resetDeclaration('${c.id}')">清除申報並取消臥底</button></div>` : ''}
+      <p class="note">如要手動設定臥底或揭露，請到「臥底」分頁。</p>
+    </div>`;
+}
+async function resetDeclaration(id){
+  const c = CHARS.find(x => x.id === id);
+  if(!confirm(`確定要清除「${c?.name}」的臥底申報並取消臥底？\n（不會影響公開陣營與角色卡）`)) return;
+  const r = await adminApi('reset-declaration', { character_id: id });
+  if(!r.ok){ alert(r.data.error || '失敗'); return; }
+  await loadChars();
+  viewCard(id);
+}
+function closeCard(){
+  $('cardPanel').hidden = true;
+  $('cardBody').innerHTML = '';
 }
 
 function parseCsv(text){
