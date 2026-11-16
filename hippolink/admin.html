@@ -17,6 +17,7 @@
   .msg{font-size:13px;min-height:1.2em;margin:0;color:var(--warn)} .msg.ok{color:var(--ok)}
   input,textarea,select{width:100%;background:var(--panel2);border:1px solid var(--line);color:var(--fg);padding:9px 11px;font:inherit;min-width:0}
   textarea{min-height:90px;resize:vertical}
+  input[type=checkbox]{width:auto}
   label{display:flex;flex-direction:column;gap:5px;font-size:13px;color:var(--muted);min-width:0}
   button{background:var(--accent);color:#1a1014;border:0;padding:9px 14px;font-weight:700;cursor:pointer}
   button.ghost{background:transparent;color:var(--fg);border:1px solid var(--line);font-weight:500}
@@ -28,16 +29,20 @@
   .row{display:flex;justify-content:space-between;align-items:center;gap:12px;border-bottom:1px solid var(--line);padding:10px 0;flex-wrap:wrap}
   .row:last-child{border-bottom:0}
   .row > div{min-width:0;flex:1}
+  .rowline{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
   .tag{font-family:ui-monospace,Menlo,monospace;font-size:12px;color:var(--muted);border:1px solid var(--line);padding:0 6px}
+  .tag.warn{color:var(--warn);border-color:var(--warn)}
+  .tag.ok{color:var(--ok);border-color:var(--ok)}
   .ok{color:var(--ok)} .bad{color:var(--bad)} .warn{color:var(--warn)}
   .preview{border:1px dashed var(--line);padding:12px;min-height:60px;overflow-wrap:anywhere}
   .preview p{margin:0 0 8px} .preview a{color:var(--accent)} .preview code{background:var(--panel2);padding:0 4px}
   .fn{font-family:ui-monospace,Menlo,monospace}
   .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .grid3{display:grid;grid-template-columns:1fr 1fr;gap:10px;align-items:end}
   .stack{display:flex;flex-direction:column;gap:12px}
   .avatarRow{display:flex;align-items:center;gap:10px}
   .avatar{width:56px;height:56px;border-radius:50%;object-fit:cover;background:var(--panel2);border:1px solid var(--line)}
-  @media (max-width:480px){.grid2{grid-template-columns:1fr}}
+  @media (max-width:480px){.grid2,.grid3{grid-template-columns:1fr}}
   [hidden]{display:none!important}
 </style>
 </head>
@@ -56,6 +61,7 @@
     <div class="tabs">
       <button data-tab="chars" aria-pressed="true" onclick="tab('chars')">角色與序號</button>
       <button data-tab="news" aria-pressed="false" onclick="tab('news')">公告</button>
+      <button data-tab="under" aria-pressed="false" onclick="tab('under')">臥底</button>
       <button data-tab="health" aria-pressed="false" onclick="tab('health')">健康檢查</button>
       <button class="ghost" onclick="logout()">登出</button>
     </div>
@@ -64,7 +70,7 @@
     <section id="tab-chars" class="stack">
       <div class="panel">
         <h2>匯入名單</h2>
-        <p class="note">貼上序號產生器的 CSV（角色名稱,陣營,序號,Discord ID）。會先預覽，確認後才寫入。序號只會在你的瀏覽器裡轉成雜湊後才送出，確認完文字框會自動清空。</p>
+        <p class="note">貼上序號產生器的 CSV（角色名稱,陣營,序號,Discord ID）。會先預覽，確認後才寫入。序號只會在你的瀏覽器裡轉成雜湊後才送出，確認完文字框會自動清空。臥底請匯入後到「臥底」分頁設定。</p>
         <textarea id="csv" placeholder="角色名稱,陣營,序號,Discord ID"></textarea>
         <div style="display:flex;gap:8px;flex-wrap:wrap">
           <button onclick="previewImport()">預覽</button>
@@ -154,6 +160,16 @@
       </div>
     </section>
 
+    <!-- 臥底 -->
+    <section id="tab-under" class="stack" hidden>
+      <div class="panel">
+        <h2>臥底設定</h2>
+        <p class="note">真實陣營只會顯示在這裡，不會回傳給玩家。角色的公開陣營維持不變，直到揭露。揭露後公開陣營會改成真實陣營，無法復原。揭露的公告請另外在「公告」發布。</p>
+        <p class="msg" id="ucMsg"></p>
+      </div>
+      <div id="ucList"></div>
+    </section>
+
     <!-- 健康檢查 -->
     <section id="tab-health" class="panel" hidden>
       <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
@@ -170,7 +186,7 @@
 const API = 'https://tpmzbscqerteskakwfpd.supabase.co/functions/v1/';
 const KEY = 'sb_publishable_jO7lG-qxUbq1t2bK5R23Fw_u7zVMivM';
 const LS = 'lyaeus.admin.v1';
-const FNS = ['admin', 'get-state', 'submit', 'save-card', 'claim-code'];
+const FNS = ['admin', 'undercover', 'get-state', 'submit', 'save-card', 'claim-code'];
 const FAC = { employee: '解憂者員工', enforcer: '執法者', citizen: '一般市民', rebel: '反抗者', other: '其他' };
 const KIND = { announcement: '公告', puzzle: '解謎', vote: '投票' };
 const DEFAULT_PUBLISHER = '解憂者有限公司';
@@ -186,7 +202,7 @@ function mdText(s){
 }
 const md = s => DOMPurify.sanitize(mdText(s));
 
-let CODE = null, CHARS = [], NEWS = [], PENDING = [], AVATAR = '';
+let CODE = null, CHARS = [], NEWS = [], PENDING = [], AVATAR = '', UC = [];
 
 async function api(fn, method, body){
   try{
@@ -200,6 +216,7 @@ async function api(fn, method, body){
   }
 }
 const adminApi = (action, extra = {}) => api('admin', 'POST', { code: CODE, action, ...extra });
+const ucApi = (action, extra = {}) => api('undercover', 'POST', { code: CODE, action, ...extra });
 function say(el, text, ok){ el.textContent = text; el.className = 'msg' + (ok ? ' ok' : ''); }
 
 /* ===== 登入 ===== */
@@ -222,10 +239,11 @@ function logout(){
 }
 
 function tab(name){
-  ['chars','news','health'].forEach(t => { $('tab-' + t).hidden = t !== name; });
+  ['chars','news','under','health'].forEach(t => { $('tab-' + t).hidden = t !== name; });
   document.querySelectorAll('.tabs button[data-tab]').forEach(b => b.setAttribute('aria-pressed', b.dataset.tab === name));
   if(name === 'chars') loadChars();
   if(name === 'news') loadNews();
+  if(name === 'under') loadUC();
   if(name === 'health') checkAll();
 }
 
@@ -288,6 +306,64 @@ async function commitImport(){
   say($('importMsg'), `已匯入 ${r.data.created} 筆`, true);
   $('csv').value = ''; $('importPreview').innerHTML = ''; PENDING = [];
   loadChars();
+}
+
+/* ===== 臥底 ===== */
+async function loadUC(){
+  const r = await ucApi('list');
+  if(!r.ok){ say($('ucMsg'), r.data.error || '讀取失敗'); return; }
+  UC = r.data.items;
+  renderUC();
+}
+function renderUC(){
+  $('ucList').innerHTML = UC.map(c => {
+    const tags = `
+      <span class="tag">公開：${esc(FAC[c.faction] || c.faction)}</span>
+      ${c.is_undercover ? '<span class="tag warn">臥底</span>' : ''}
+      ${c.revealed ? '<span class="tag ok">已揭露</span>' : ''}`;
+    if(c.revealed) return `
+      <div class="panel">
+        <div class="rowline"><b>${esc(c.name)}</b> ${tags}</div>
+        <p class="note">真實陣營：${esc(FAC[c.true_faction] || c.true_faction)}（已揭露，不可修改）</p>
+      </div>`;
+    const cur = c.true_faction || c.faction;
+    return `
+      <div class="panel">
+        <div class="rowline"><b>${esc(c.name)}</b> ${tags}</div>
+        <div class="grid3">
+          <label class="rowline" style="color:var(--fg);font-size:14px">
+            <input type="checkbox" id="uc_en_${c.id}" ${c.is_undercover ? 'checked' : ''}> 設為臥底
+          </label>
+          <label>真實陣營
+            <select id="uc_tf_${c.id}">
+              ${Object.entries(FAC).map(([k, v]) => `<option value="${k}" ${cur === k ? 'selected' : ''}>${esc(v)}</option>`).join('')}
+            </select>
+          </label>
+        </div>
+        <div class="rowline">
+          <button onclick="saveUC('${c.id}')">儲存</button>
+          ${c.is_undercover ? `<button class="danger" onclick="revealUC('${c.id}')">揭露</button>` : ''}
+        </div>
+      </div>`;
+  }).join('') || '<p class="note">還沒有角色</p>';
+}
+async function saveUC(id){
+  const r = await ucApi('set-undercover', {
+    character_id: id,
+    enabled: $('uc_en_' + id).checked,
+    true_faction: $('uc_tf_' + id).value,
+  });
+  if(!r.ok){ say($('ucMsg'), r.data.error || '儲存失敗'); return; }
+  say($('ucMsg'), '已儲存', true);
+  loadUC();
+}
+async function revealUC(id){
+  const c = UC.find(x => x.id === id);
+  if(!confirm(`確定要揭露「${c?.name}」？公開陣營會改為真實陣營，無法復原。`)) return;
+  const r = await ucApi('reveal', { character_id: id });
+  if(!r.ok){ say($('ucMsg'), r.data.error || '揭露失敗'); return; }
+  say($('ucMsg'), '已揭露', true);
+  loadUC();
 }
 
 /* ===== 公告 ===== */
