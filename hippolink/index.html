@@ -223,9 +223,11 @@ const LS_KEY = 'lyaeus.code.v1';
 
 /* ===== 狀態 ===== */
 const S = {code:null, data:null, active:null, tab:'news', pending:{}};
+const FAC_NAME = { employee:'解憂者員工', enforcer:'執法者', citizen:'一般市民', rebel:'反抗者', other:'其他' };
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-// 公告內容：Markdown 轉換後再過濾；若程式庫沒載入，退回純文字，避免整頁壞掉
+
+/* 公告內容：`-# 文字` 轉成小字，其餘交給 Markdown；過濾後才顯示 */
 function mdText(s){
   const t = String(s ?? '').split('\n').map(line => {
     const m = line.match(/^\s*-#\s+(.*)$/);
@@ -233,6 +235,7 @@ function mdText(s){
   }).join('\n');
   return marked.parse(t, {breaks:true});
 }
+// 若程式庫沒載入，退回純文字，避免整頁壞掉
 const md = s => { try{ return DOMPurify.sanitize(mdText(s)); }catch(e){ return esc(s); } };
 
 /* ===== 呼叫後端 ===== */
@@ -321,7 +324,16 @@ function renderAll(){
 /* ===== 公告區：公告、解謎、投票（資料來自後端） ===== */
 function renderNews(){
   const items = S.data.items ?? [];
+  const me = slotOf(S.active);
+  // 臥底提示：只有擁有者看得到（後端只對本人回傳 my_true_faction）
+  const banner = me && me.my_true_faction ? `
+    <div class="panel quiet" style="border:1px solid var(--warn);padding:12px;background:rgba(233,196,106,.08)">
+      <span class="mono" style="color:var(--warn)">臥底身分</span>
+      <p style="margin:4px 0 0">你的真實陣營是：<b>${esc(FAC_NAME[me.my_true_faction] || me.my_true_faction)}</b></p>
+      <p class="note" style="margin-top:4px">只有你看得到這則資訊。</p>
+    </div>` : '';
   $('v-news').innerHTML = `
+    ${banner}
     <div class="panel quiet"><h2>公告</h2>
       <p class="note">只顯示你目前身分可以看到的內容。解謎與投票都是各自的，互動內容會同步發到 Discord 頻道。</p></div>
     ${items.map(it => {
