@@ -5,6 +5,13 @@
 <title>解憂者 HippoLink 終端</title>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="claude:viewport-fit-sides" content="cover">
+<meta name="theme-color" content="#0f1318">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="HippoLink">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-180.png">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@600;900&family=Noto+Sans+TC:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.2/marked.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.1.6/purify.min.js"></script>
@@ -29,7 +36,6 @@ h1,h2,h3{font-family:var(--serif);font-weight:900;line-height:1.2;margin:0;text-
 .top{position:sticky;top:env(safe-area-inset-top,0px);background:var(--bg);padding-block:8px;z-index:5;display:flex;justify-content:space-between;align-items:center;gap:12px;border-bottom:1px solid var(--line)}
 .brand{display:flex;flex-direction:column;gap:2px;min-width:0}
 .brand h1{font-size:20px}
-.badge{border:1px solid var(--warn);color:var(--warn);font-family:var(--mono);font-size:11px;padding:2px 6px;letter-spacing:.08em}
 .panel{background:var(--panel);border:1px solid var(--line);padding:16px;display:flex;flex-direction:column;gap:12px;min-width:0}
 .panel.quiet{background:transparent;border:0;padding:0}
 .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
@@ -45,22 +51,51 @@ input[type=text],textarea{width:100%;background:var(--panel2);border:1px solid v
 .note{color:var(--muted);font-size:13px;margin:0}
 .err{color:var(--warn);font-size:13px;min-height:1.2em;margin:0}
 .ok{color:var(--ok);font-size:14px;margin:0}
-.item{border-left:2px solid var(--accent);padding:4px 0 4px 12px;display:flex;flex-direction:column;gap:6px;min-width:0}
-.item.ivt{border-left-color:var(--warn)}
+.item{--tone:var(--accent);border-left:2px solid var(--tone);padding:4px 0 4px 12px;display:flex;flex-direction:column;gap:8px;min-width:0}
+.item.ivt{--tone:var(--warn)}
 /* 依陣營上色的左側色條（放在 .ivt 後面，才能覆蓋解謎與投票的黃色） */
-.item.tone-employee{border-left-color:#e08aad}
-.item.tone-enforcer{border-left-color:#4a8fe6}
-.item.tone-citizen{border-left-color:#c9bfcc}
-.item.tone-rebel{border-left-color:#d9ff3f}
+.item.tone-employee{--tone:#e08aad}
+.item.tone-enforcer{--tone:#4a8fe6}
+.item.tone-citizen{--tone:#c9bfcc}
+.item.tone-rebel{--tone:#d9ff3f}
 .item time{color:var(--muted);font-family:var(--mono);font-size:12px}
+
+/* 摺疊：預設只顯示前五行，點開才看得到全文與作答、投票 */
+.item:not(.open){cursor:pointer}
+.itemHead{display:flex;align-items:center;gap:8px;width:100%;background:none;border:0;padding:0;text-align:left;cursor:pointer;color:var(--muted);flex-wrap:wrap}
+.itemHead:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.kind{font-size:12px;font-weight:700;letter-spacing:.08em;color:var(--tone);border:1px solid var(--tone);padding:0 8px;line-height:1.6}
+.state{font-size:12px;color:var(--muted)}
+.state.done{color:var(--ok)}
+.chev{margin-left:auto;font-size:12px;transition:transform .2s}
+.item.open .chev{transform:rotate(180deg)}
+.pub{display:flex;align-items:center;gap:8px;font-weight:500;min-width:0}
+.pub img{width:32px;height:32px;border-radius:50%;object-fit:cover;flex:none}
+.itemBody{max-height:calc(1.6em * 5);overflow:hidden;position:relative;min-width:0;display:flex;flex-direction:column;gap:6px}
+.item.open .itemBody{max-height:none;overflow:visible}
+.item.clamped:not(.open) .itemBody{-webkit-mask-image:linear-gradient(#000 55%,transparent);mask-image:linear-gradient(#000 55%,transparent)}
+.moreHint{font-size:12px;color:var(--tone);margin:0}
+.collapse{align-self:flex-start;background:none;border:0;padding:4px 0;color:var(--muted);font-size:13px;cursor:pointer}
+.item:not(.open) .ctrl,.item:not(.open) .collapse,.item.open .moreHint{display:none}
+.ctrl{display:flex;flex-direction:column;gap:8px;min-width:0}
+/* 看過的內容：收合後文字變灰 */
+.item.read:not(.open) .itemBody,.item.read:not(.open) .pub{color:var(--muted)}
+@media (prefers-reduced-motion: reduce){ .chev{transition:none} }
 .opt{text-align:left;width:100%;background:transparent;border:1px solid var(--line);padding:10px 12px;cursor:pointer}
 .opt[aria-checked="true"]{border-color:var(--accent);background:rgba(224,137,172,.12)}
 .opt:disabled{cursor:default;opacity:.85}
 .reward{border:1px solid var(--ok);background:rgba(159,212,168,.07);padding:12px;display:flex;flex-direction:column;gap:6px;min-width:0}
-.dock{position:fixed;left:0;right:0;bottom:env(safe-area-inset-bottom,0px);background:var(--panel);border-top:1px solid var(--line);display:flex;justify-content:space-around;padding:6px max(8px,env(safe-area-inset-left,0px)) 6px max(8px,env(safe-area-inset-right,0px))}
+.dock{position:fixed;left:0;right:0;bottom:0;background:var(--panel);border-top:1px solid var(--line);display:flex;justify-content:space-around;padding:6px max(8px,env(safe-area-inset-right,0px)) calc(6px + env(safe-area-inset-bottom,0px)) max(8px,env(safe-area-inset-left,0px))}
 .tab{background:none;border:0;color:var(--muted);padding:8px 10px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:2px;min-width:0;font-size:13px;flex:1}
 .tab[aria-selected="true"]{color:var(--accent);font-weight:700}
 .sep{height:1px;background:var(--line)}
+
+/* 通知詢問視窗 */
+.modal{position:fixed;inset:0;background:rgba(5,7,10,.72);display:flex;align-items:center;justify-content:center;z-index:50;
+  padding:16px max(16px,env(safe-area-inset-right,0px)) 16px max(16px,env(safe-area-inset-left,0px))}
+.modal .panel{width:100%;max-width:400px}
+.modal h2{font-size:18px}
+.modal p{margin:0}
 
 /* ===== 角色卡（限定在 #v-card 內） ===== */
 #v-card{
@@ -149,7 +184,10 @@ input[type=text],textarea{width:100%;background:var(--panel2);border:1px solid v
       <span class="mono" id="whoPlayer">HippoLink</span>
       <h1 id="whoName">—</h1>
     </div>
-    <button class="btn ghost" onclick="logout()">登出</button>
+    <div class="row" style="flex-wrap:nowrap">
+      <button class="btn ghost" id="pushBtn" onclick="PUSH.open(false)" hidden>通知</button>
+      <button class="btn ghost" onclick="logout()">登出</button>
+    </div>
   </header>
 
   <nav class="row" aria-label="切換身分" id="slots"></nav>
@@ -262,11 +300,23 @@ input[type=text],textarea{width:100%;background:var(--panel2);border:1px solid v
   <button class="tab" role="tab" data-tab="card" aria-selected="false" onclick="go('card')"><span>▣</span>角色卡</button>
 </nav>
 
+<!-- ============ 通知詢問視窗 ============ -->
+<div class="modal" id="pushModal" hidden role="dialog" aria-modal="true" aria-labelledby="pmTitle">
+  <div class="panel">
+    <h2 id="pmTitle">開啟通知？</h2>
+    <div id="pmBody" style="display:flex;flex-direction:column;gap:8px"></div>
+    <p class="err" id="pmMsg" role="status"></p>
+    <div class="row" id="pmActions"></div>
+  </div>
+</div>
+
 <script>
 /* ===== 後端設定（前端可用的公開金鑰） ===== */
 const API = 'https://tpmzbscqerteskakwfpd.supabase.co/functions/v1/';
 const KEY = 'sb_publishable_jO7lG-qxUbq1t2bK5R23Fw_u7zVMivM';
 const LS_KEY = 'lyaeus.code.v1';
+// 推播公鑰：貼上推播設定工具產生的「公鑰」（不是私鑰）
+const VAPID_PUBLIC_KEY = 'BOMe_WuPEUpQ76T75c9OsJn6-wef_TW6vrghQhJDuHs90DGHY8_Nm-Y4lfuyV4ExFStMb-zGjoS5fdV_EqRjFPQ';
 
 /* ===== 狀態 ===== */
 const S = {code:null, data:null, active:null, tab:'news', pending:{}};
@@ -319,6 +369,149 @@ async function call(fn, body){
   }
 }
 
+/* ===== 推播通知 ===== */
+const PUSH = (function(){
+  const ASK_LS = 'lyaeus.pushask.v1';   // 已經問過（按了稍後再說或知道了）
+  const OFF_LS = 'lyaeus.pushoff.v1';   // 玩家自己關閉了通知
+  const supported = 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+  const isIOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const standalone = (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true;
+  const configured = VAPID_PUBLIC_KEY.length > 80;
+  let regP = null;
+
+  const lsGet = k => { try{ return localStorage.getItem(k) }catch(e){ return null } };
+  const lsSet = (k, v) => { try{ localStorage.setItem(k, v) }catch(e){} };
+  const lsDel = k => { try{ localStorage.removeItem(k) }catch(e){} };
+
+  function reg(){
+    if(!regP) regP = navigator.serviceWorker.register('sw.js').then(() => navigator.serviceWorker.ready);
+    return regP;
+  }
+  function keyBytes(){
+    const s = VAPID_PUBLIC_KEY.replace(/-/g, '+').replace(/_/g, '/');
+    const bin = atob(s + '==='.slice((s.length + 3) % 4));
+    return Uint8Array.from(bin, c => c.charCodeAt(0));
+  }
+  async function currentSub(){
+    if(!supported) return null;
+    try{ return await (await reg()).pushManager.getSubscription(); }catch(e){ return null; }
+  }
+  async function state(){
+    if(!supported) return isIOS && !standalone ? 'ios-home' : 'unsupported';
+    if(Notification.permission === 'denied') return 'denied';
+    if(Notification.permission === 'granted' && await currentSub() && lsGet(OFF_LS) !== '1') return 'on';
+    return 'off';
+  }
+  // 向伺服器登記這台裝置（金鑰換過時會重新訂閱）
+  async function subscribe(){
+    const r = await reg();
+    let sub = await r.pushManager.getSubscription();
+    if(sub){
+      const k = sub.options && sub.options.applicationServerKey;
+      if(k && btoa(String.fromCharCode(...new Uint8Array(k))) !== btoa(String.fromCharCode(...keyBytes()))){
+        await sub.unsubscribe(); sub = null;
+      }
+    }
+    if(!sub) sub = await r.pushManager.subscribe({ userVisibleOnly:true, applicationServerKey:keyBytes() });
+    const res = await call('push-subscribe', { code:S.code, action:'subscribe', subscription:sub.toJSON() });
+    if(!res.ok) throw new Error(res.data.error || '登記失敗');
+  }
+
+  // 按下「開啟通知」：第一行就要詢問權限，iPhone 才會跳出系統視窗
+  async function enable(){
+    $('pmMsg').textContent = '';
+    let perm;
+    try{ perm = await Notification.requestPermission(); }catch(e){ perm = Notification.permission; }
+    if(perm !== 'granted'){ lsSet(ASK_LS, '1'); await render(); return; }
+    try{
+      await subscribe();
+      lsDel(OFF_LS); lsSet(ASK_LS, '1');
+      await render('justOn');
+    }catch(e){
+      $('pmMsg').textContent = '開啟失敗：' + (e.message || e) + '。請稍後再試。';
+    }
+  }
+  async function disable(){
+    $('pmMsg').textContent = '';
+    const sub = await currentSub();
+    if(sub){
+      await call('push-subscribe', { code:S.code, action:'unsubscribe', subscription:{ endpoint:sub.endpoint } });
+      try{ await sub.unsubscribe(); }catch(e){}
+    }
+    lsSet(OFF_LS, '1');
+    await render();
+  }
+  function later(){ lsSet(ASK_LS, '1'); close(); }
+  function close(){ $('pushModal').hidden = true; }
+
+  async function render(flag){
+    const st = await state();
+    const title = $('pmTitle'), body = $('pmBody'), act = $('pmActions');
+    const btn = (label, fn, ghost) => {
+      const b = document.createElement('button');
+      b.className = 'btn' + (ghost ? ' ghost' : ''); b.type = 'button'; b.textContent = label; b.onclick = fn;
+      return b;
+    };
+    act.innerHTML = '';
+    if(st === 'on'){
+      title.textContent = flag === 'justOn' ? '通知已開啟' : '通知';
+      body.innerHTML = `<p>${flag === 'justOn' ? '設定完成！' : '這台裝置已開啟通知。'}有新的公告、解謎或投票時，會跳出一則提醒。</p>
+        <p class="note">通知只會寫「你有一則新的公告」，不會顯示內容。</p>`;
+      act.append(btn('好', close), btn('關閉通知', disable, true));
+    } else if(st === 'off'){
+      title.textContent = '開啟通知？';
+      body.innerHTML = `<p>有新的公告、解謎或投票時，在手機上跳出一則提醒。</p>
+        <p class="note">只有你的角色看得到的內容才會通知你。通知只寫「你有一則新的公告」，不會顯示內容，鎖定畫面上也不會露出劇情。</p>`;
+      act.append(btn('開啟通知', enable), btn('稍後再說', later, true));
+    } else if(st === 'denied'){
+      title.textContent = '通知已被封鎖';
+      body.innerHTML = `<p>這台裝置目前不允許這個網站發送通知。</p>
+        <p class="note">請到手機或瀏覽器的設定，找到這個網站（或 HippoLink App）並允許通知，再回來按右上角的「通知」。</p>`;
+      act.append(btn('知道了', later));
+    } else if(st === 'ios-home'){
+      title.textContent = '先加入主畫面';
+      body.innerHTML = `<p>iPhone 要先把網站加入主畫面，才能開啟通知：</p>
+        <p>1. 在 Safari 點下方的「分享」按鈕<br>2. 選「加入主畫面」<br>3. 從主畫面的 HippoLink 圖示打開，再按右上角的「通知」</p>
+        <p class="note">需要 iOS 16.4 以上。</p>`;
+      act.append(btn('知道了', later));
+    } else {
+      title.textContent = '無法開啟通知';
+      body.innerHTML = `<p>這個瀏覽器不支援通知。</p>
+        <p class="note">建議改用手機的 Chrome，或 iPhone 的 Safari 加入主畫面後使用。</p>`;
+      act.append(btn('知道了', later));
+    }
+  }
+  async function open(){
+    if(!configured) return;
+    $('pmMsg').textContent = '';
+    await render();
+    $('pushModal').hidden = false;
+  }
+
+  // 登入後：已允許的裝置自動登記到目前玩家；還沒問過的，跳出詢問視窗
+  async function afterLogin(){
+    if(!configured) return;
+    $('pushBtn').hidden = false;
+    if(supported) reg().catch(() => {});
+    const st = await state();
+    if(supported && Notification.permission === 'granted' && lsGet(OFF_LS) !== '1'){
+      try{ await subscribe(); }catch(e){}
+      return;
+    }
+    if(lsGet(ASK_LS) === '1') return;
+    if(st === 'off' || st === 'ios-home') open();
+  }
+  // 登出：這台裝置不再收到這位玩家的通知
+  function unlink(code){
+    if(!configured || !supported) return;
+    currentSub().then(sub => {
+      if(sub) call('push-subscribe', { code, action:'unsubscribe', subscription:{ endpoint:sub.endpoint } });
+    });
+  }
+
+  return { open, afterLogin, unlink };
+})();
+
 /* ===== 登入與載入 ===== */
 async function doLogin(){
   const code = $('code').value.trim();
@@ -340,6 +533,7 @@ function enter(d){
   $('login').hidden = true; $('app').hidden = false; $('dock').hidden = false;
   CARD.load(d.card, slotOf(S.active), S.active);
   go('news');
+  PUSH.afterLogin();
 }
 async function fetchState(charId, reloadCard){
   const r = await call('get-state', {code:S.code, character_id:charId});
@@ -358,11 +552,19 @@ function slotOf(charId){
   return s ? s.characters : null;
 }
 function logout(){
+  if(S.code) PUSH.unlink(S.code);
   S.code = null; S.data = null; S.active = null;
   try{ localStorage.removeItem(LS_KEY); }catch(e){}
   $('app').hidden = true; $('dock').hidden = true; $('login').hidden = false;
+  $('pushModal').hidden = true;
 }
 function showToast(msg){ $('saveMsg').textContent = msg; }
+
+// 從通知點進來、或切回這個 App 時，自動更新公告
+document.addEventListener('visibilitychange', async () => {
+  if(document.visibilityState !== 'visible' || !S.code || !S.data || S.tab !== 'news') return;
+  if(await fetchState(S.active, false)) renderAll();
+});
 
 /* ===== 身分與分頁 ===== */
 async function switchTo(id){
@@ -438,53 +640,115 @@ function renderNews(){
       <p style="margin:4px 0 0">你的真實陣營是：<b>${esc(FAC_NAME[me.my_true_faction] || me.my_true_faction)}</b></p>
       <p class="note" style="margin-top:4px">只有你看得到這則資訊。</p>
     </div>` : '';
+  const read = readSet();
+  // 每則內容共用的外框：種類小標、時間、狀態、展開箭頭
+  const card = (it, extraCls, kindLabel, state, pub, body, ctrl, hint) => {
+    const open = OPEN.has(it.id);
+    return `
+    <article class="item${extraCls}${toneCls(it)}${open ? ' open' : ''}${read.has(it.id) ? ' read' : ''}" data-item="${it.id}" onclick="openItem(event,'${it.id}')">
+      <button class="itemHead" type="button" aria-expanded="${open}" onclick="toggleItem(event,'${it.id}')">
+        <span class="kind">${kindLabel}</span>
+        <time>${new Date(it.publish_at).toLocaleString('zh-TW')}</time>
+        ${state}
+        <span class="chev" aria-hidden="true">▾</span>
+      </button>
+      ${pub}
+      <div class="itemBody">${body}</div>
+      <p class="moreHint">${hint}</p>
+      ${ctrl ? `<div class="ctrl">${ctrl}</div>` : ''}
+      <button class="collapse" type="button" onclick="toggleItem(event,'${it.id}')">收合 ▴</button>
+    </article>`;
+  };
   $('v-news').innerHTML = `
     ${banner}
     <div class="panel quiet"><h2>公告</h2>
-      <p class="note">只顯示你目前身分可以看到的內容。解謎與投票都是各自的，互動內容會同步發到 Discord 頻道。</p></div>
+      <p class="note">只顯示你目前身分可以看到的內容，點一下就能展開。解謎與投票都是各自的，互動內容會同步發到 Discord 頻道。</p></div>
     ${items.map(it => {
-      if(it.kind === 'announcement') return `
-        <article class="item${toneCls(it)}">
-          <time>${new Date(it.publish_at).toLocaleString('zh-TW')}</time>
-          ${it.publisher ? `
-            <div style="display:flex;align-items:center;gap:8px">
-              ${it.publisher_avatar ? `<img src="${esc(it.publisher_avatar)}" alt="" style="width:32px;height:32px;border-radius:50%;object-fit:cover">` : ''}
-              <span style="color:var(--fg);font-weight:500">${esc(it.publisher)}</span>
-            </div>` : ''}
-          <div class="md${it.glitch ? ' gl-on' : ''}" style="font-size:15px">${md(it.body)}</div>
-        </article>`;
-      if(it.kind === 'puzzle') return `
-        <article class="item ivt${toneCls(it)}">
-          <time>解謎</time>
-          <h3 style="font-size:18px">${esc(it.title)}</h3>
-          <p style="margin:0">${esc(it.payload?.q)}</p>
-          ${it.solved ? `
-            <p class="ok">✓ 這一題已由你的角色解開。</p>
-            ${it.reward ? `<div class="reward"><span class="mono" style="color:var(--ok)">解開獎勵</span><div class="md" style="font-size:15px">${md(it.reward)}</div></div>` : ''}
-          ` : `
-            <div class="field"><label for="ans_${it.id}" class="mono">你的答案</label>
-              <input id="ans_${it.id}" type="text" maxlength="30" autocomplete="off"></div>
-            <div class="row"><button class="btn" onclick="solve('${it.id}')">送出</button></div>
-            <p class="err" id="err_${it.id}" role="status"></p>
-            ${it.hint ? `<p class="note">提示：${esc(it.hint)}</p>` : ''}`}
-        </article>`;
-      if(it.kind === 'vote') return `
-        <article class="item ivt${toneCls(it)}">
-          <time>投票</time>
-          <h3 style="font-size:18px">${esc(it.title)}</h3>
-          <p class="note" style="font-size:14px">${esc(it.payload?.q)}</p>
-          <div role="radiogroup" aria-label="${esc(it.title)}" style="display:flex;flex-direction:column;gap:8px">
+      if(it.kind === 'announcement') return card(it, '', '公告', '',
+        it.publisher ? `<div class="pub">
+            ${it.publisher_avatar ? `<img src="${esc(it.publisher_avatar)}" alt="">` : ''}
+            <span>${esc(it.publisher)}</span>
+          </div>` : '',
+        `<div class="md${it.glitch ? ' gl-on' : ''}">${md(it.body)}</div>`,
+        '', '點開看全文');
+      if(it.kind === 'puzzle') return card(it, ' ivt', '解謎',
+        it.solved ? '<span class="state done">✓ 已解開</span>' : '<span class="state">未解開</span>',
+        '',
+        `${it.title ? `<h3 style="font-size:18px">${esc(it.title)}</h3>` : ''}
+         <p style="margin:0">${esc(it.payload?.q)}</p>`,
+        it.solved ? `
+          <p class="ok">✓ 這一題已由你的角色解開。</p>
+          ${it.reward ? `<div class="reward"><span class="mono" style="color:var(--ok)">解開獎勵</span><div class="md">${md(it.reward)}</div></div>` : ''}
+        ` : `
+          <div class="field"><label for="ans_${it.id}" class="mono">你的答案</label>
+            <input id="ans_${it.id}" type="text" maxlength="30" autocomplete="off"></div>
+          <div class="row"><button class="btn" onclick="solve('${it.id}')">送出</button></div>
+          <p class="err" id="err_${it.id}" role="status"></p>
+          ${it.hint ? `<p class="note">提示：${esc(it.hint)}</p>` : ''}`,
+        it.solved ? (it.reward ? '點開看解開獎勵' : '點開看全文') : '點開作答');
+      if(it.kind === 'vote') return card(it, ' ivt', '投票',
+        it.voted ? '<span class="state done">✓ 已投票</span>' : '<span class="state">未投票</span>',
+        '',
+        `${it.title ? `<h3 style="font-size:18px">${esc(it.title)}</h3>` : ''}
+         <p style="margin:0">${esc(it.payload?.q)}</p>`,
+        `<div role="radiogroup" aria-label="${esc(it.title || '投票')}" style="display:flex;flex-direction:column;gap:8px">
             ${(it.payload?.options ?? []).map(o => `
               <button class="opt" role="radio" aria-checked="${it.voted===o}" ${it.voted?'disabled':''} onclick="vote('${it.id}','${esc(o)}')">${esc(o)}</button>`).join('')}
           </div>
           <p class="err" id="verr_${it.id}" role="status"></p>
-          <p class="note">${it.voted ? '✓ 此角色已投票，結果稍後公布。' : '選擇後即送出，送出後無法更改。'}</p>
-        </article>`;
+          <p class="note">${it.voted ? '✓ 此角色已投票，結果稍後公布。' : '選擇後即送出，送出後無法更改。'}</p>`,
+        it.voted ? '點開看全文' : '點開投票');
       return '';
     }).join('') || '<p class="note">目前沒有新的公告。</p>'}`;
 
+  // 判斷哪些內容超過五行，需要漸隱與「點開看全文」
+  document.querySelectorAll('#v-news .item').forEach(fitClamp);
   // 畫面換好後，替每則故障公告啟動隨機抖動
   document.querySelectorAll('#v-news .md.gl-on').forEach(startGlitch);
+}
+
+/* ===== 摺疊與已讀 ===== */
+const OPEN = new Set();   // 目前展開中的內容（重新整理畫面時保持展開）
+function readKey(){ return 'lyaeus.read.v1.' + S.active; }
+function readSet(){
+  try{ return new Set(JSON.parse(localStorage.getItem(readKey())) || []); }catch(e){ return new Set(); }
+}
+function markRead(id){
+  const s = readSet();
+  if(s.has(id)) return;
+  s.add(id);
+  try{ localStorage.setItem(readKey(), JSON.stringify([...s].slice(-500))); }catch(e){}
+}
+// 摺疊時：超過五行才顯示漸隱；解謎與投票沒作答前一律提示點開
+function fitClamp(el){
+  const b = el.querySelector('.itemBody');
+  const over = !el.classList.contains('open') && b.scrollHeight > b.clientHeight + 2;
+  el.classList.toggle('clamped', over);
+  const needsAct = !!el.querySelector('.ctrl');
+  el.querySelector('.moreHint').hidden = !(over || needsAct);
+}
+function setOpen(el, id, open){
+  el.classList.toggle('open', open);
+  el.querySelector('.itemHead').setAttribute('aria-expanded', open);
+  if(open){ OPEN.add(id); markRead(id); el.classList.add('read'); }
+  else OPEN.delete(id);
+  fitClamp(el);
+}
+// 點摺疊中的內容任一處：展開
+function openItem(ev, id){
+  const el = ev.currentTarget;
+  if(el.classList.contains('open')) return;
+  if(ev.target.closest('a')) ev.preventDefault();
+  setOpen(el, id, true);
+}
+// 點標題列或「收合」：切換
+function toggleItem(ev, id){
+  ev.stopPropagation();
+  const el = ev.currentTarget.closest('.item');
+  if(!el) return;
+  const open = !el.classList.contains('open');
+  setOpen(el, id, open);
+  if(!open && el.getBoundingClientRect().top < 0) el.scrollIntoView({ block:'start', behavior: REDUCE_MOTION ? 'auto' : 'smooth' });
 }
 async function solve(itemId){
   const input = $('ans_'+itemId);
