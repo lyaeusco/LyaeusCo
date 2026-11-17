@@ -203,7 +203,12 @@
       </div>
 
       <div class="panel">
-        <h2>所有內容</h2>
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
+          <h2>所有內容</h2>
+          <button class="ghost" onclick="pushTest()">推播測試</button>
+        </div>
+        <p class="note" id="pushInfo"></p>
+        <p class="msg" id="pushMsg"></p>
         <div id="newsList"></div>
       </div>
 
@@ -241,7 +246,7 @@ const KEY = 'sb_publishable_jO7lG-qxUbq1t2bK5R23Fw_u7zVMivM';
 const LS = 'lyaeus.admin.v1';
 const PUB_LS = 'lyaeus.publishers.v1';
 const REVEAL_LS = 'lyaeus.reveal.v1';
-const FNS = ['admin', 'undercover', 'get-state', 'submit', 'save-card', 'claim-code', 'declare-undercover'];
+const FNS = ['admin', 'undercover', 'get-state', 'submit', 'save-card', 'claim-code', 'declare-undercover', 'push-subscribe', 'push-send'];
 const FAC = { employee: '解憂者員工', enforcer: '執法者', citizen: '一般市民', rebel: '反抗者', other: '其他' };
 const KIND = { announcement: '公告', puzzle: '解謎', vote: '投票' };
 const DEFAULT_PUBLISHER = '解憂者有限公司';
@@ -259,6 +264,7 @@ function mdText(s){
 const md = s => DOMPurify.sanitize(mdText(s));
 
 let CODE = null, CHARS = [], NEWS = [], PENDING = [], AVATAR = '', UC = [], RESULT_ID = null, RESULT_DATA = null;
+let PUSHED = {};
 
 async function api(fn, method, body){
   try{
@@ -273,6 +279,7 @@ async function api(fn, method, body){
 }
 const adminApi = (action, extra = {}) => api('admin', 'POST', { code: CODE, action, ...extra });
 const ucApi = (action, extra = {}) => api('undercover', 'POST', { code: CODE, action, ...extra });
+const pushApi = (action, extra = {}) => api('push-send', 'POST', { code: CODE, action, ...extra });
 function say(el, text, ok){ el.textContent = text; el.className = 'msg' + (ok ? ' ok' : ''); }
 
 /* ===== 登入 ===== */
@@ -653,10 +660,20 @@ async function loadNews(){
   fillAudience(keep.length ? keep : ['all']);
   renderPubList();
   if(!$('f_publish').value) resetForm();
-  const r = await adminApi('list-announcements');
+  const [r, p] = await Promise.all([adminApi('list-announcements'), pushApi('status')]);
   if(!r.ok){ say($('newsMsg'), r.data.error || '讀取失敗'); return; }
   NEWS = r.data.items;
-  $('newsList').innerHTML = NEWS.map(n => `
+  PUSHED = {};
+  if(p.ok){
+    (p.data.items || []).forEach(x => { if(x.pushed_at) PUSHED[x.id] = x.pushed_at; });
+    $('pushInfo').textContent = `目前有 ${p.data.devices} 台裝置開啟通知。推播只會送給看得到該則內容的玩家，通知只有一行提醒，不含內容。`;
+  } else {
+    $('pushInfo').textContent = '推播功能尚未就緒：' + (p.data.error || ('錯誤 ' + p.status));
+  }
+  const now = new Date();
+  $('newsList').innerHTML = NEWS.map(n => {
+    const live = n.status === 'published' && new Date(n.publish_at) <= now;
+    return `
     <div class="row">
       <div>
         <b>${esc(n.title || '（無標題）')}</b>
@@ -664,6 +681,7 @@ async function loadNews(){
         <span class="tag">${n.status === 'published' ? '已發布' : '草稿'}</span>
         ${n.glitch ? '<span class="tag warn">故障雜訊</span>' : ''}
         ${n.kind === 'puzzle' && n.reward ? '<span class="tag ok">有獎勵</span>' : ''}
+        ${PUSHED[n.id] ? `<span class="tag ok">已推播 ${esc(new Date(PUSHED[n.id]).toLocaleString('zh-TW'))}</span>` : ''}
         <div class="note">
           ${esc(n.publisher || '未填發布者')} ・ ${new Date(n.publish_at).toLocaleString('zh-TW')}
           ・ 受眾：${esc(String(n.audience || '').split(',').join('、'))}
@@ -671,12 +689,46 @@ async function loadNews(){
         </div>
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
+        ${live ? `<button onclick="pushNews('${n.id}')">推播</button>` : ''}
         ${n.kind !== 'announcement' ? `<button class="ghost" onclick="showResults('${n.id}')">結果</button>` : ''}
         <button class="ghost" onclick="editNews('${n.id}')">編輯</button>
         <button class="danger" onclick="deleteNews('${n.id}')">刪除</button>
       </div>
-    </div>`).join('') || '<p class="note">還沒有內容</p>';
+    </div>`;
+  }).join('') || '<p class="note">還沒有內容</p>';
   loadAudit();
+}
+
+/* ===== 推播 ===== */
+async function pushNews(id){
+  const n = NEWS.find(x => x.id === id);
+  const name = n?.title || KIND[n?.kind] || '這則內容';
+  let q = `要推播「${name}」嗎？\n\n只有看得到這則內容的玩家會收到一行提醒，不含內容。`;
+  if(PUSHED[id]) q += `\n\n這則已在 ${new Date(PUSHED[id]).toLocaleString('zh-TW')} 推播過，再推一次，玩家會再收到一次通知。`;
+  if(!confirm(q)) return;
+  say($('pushMsg'), '推播中…', true);
+  const r = await pushApi('send', { id });
+  if(!r.ok){ say($('pushMsg'), r.data.error || '推播失敗'); return; }
+  const d = r.data;
+  let t;
+  if(!d.devices) t = `沒有送出：${d.players} 位符合的玩家都還沒開啟通知。`;
+  else {
+    t = `已推播給 ${d.players} 位符合的玩家，共 ${d.devices} 台裝置，成功 ${d.sent} 台`;
+    if(d.removed) t += `，${d.removed} 台已失效並移除`;
+    if(d.failed) t += `，${d.failed} 台失敗（代碼 ${Object.entries(d.codes || {}).map(([k, v]) => k + '×' + v).join('、')}）`;
+    t += '。';
+  }
+  await loadNews();
+  say($('pushMsg'), t, !d.failed);
+}
+async function pushTest(){
+  say($('pushMsg'), '傳送測試通知中…', true);
+  const r = await pushApi('test');
+  if(!r.ok){ say($('pushMsg'), r.data.error || '測試失敗'); return; }
+  const d = r.data;
+  say($('pushMsg'), d.sent
+    ? `已送出測試通知到你的 ${d.sent} 台裝置，請看手機。`
+    : `測試通知沒有送達（失敗 ${d.failed} 台，代碼 ${Object.entries(d.codes || {}).map(([k, v]) => k + '×' + v).join('、') || '無'}）。`, !!d.sent);
 }
 
 function editNews(id){
@@ -725,7 +777,7 @@ async function saveNews(){
   const r = await adminApi('save-announcement', { item });
   if(!r.ok){ say($('newsMsg'), r.data.error || '儲存失敗'); return; }
   resetForm();
-  say($('newsMsg'), '已儲存', true);
+  say($('newsMsg'), item.status === 'published' ? '已儲存。要通知玩家的話，請在下方列表按「推播」。' : '已儲存', true);
   loadNews();
 }
 async function deleteNews(id){
