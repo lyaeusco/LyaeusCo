@@ -1,9 +1,4 @@
-<!doctype html>
-<html lang="zh-Hant">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<style>body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
 <title>解憂者角色卡產生器</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -56,10 +51,10 @@ input[type=range]{width:100%;accent-color:var(--accent)}
 #out{margin-top:16px}
 #out img{width:100%;display:block;border:1px solid var(--line)}
 #out p{margin:8px 0 0}
+.sup{margin-top:28px;padding-top:20px;border-top:1px solid var(--line)}
+.sup h2{font-family:var(--display);font-weight:900;font-size:1.15rem;margin:0 0 4px}
 .foot{margin-top:40px;font-size:.75rem;color:var(--muted);text-align:center}
 </style>
-</head>
-<body>
 
 <div class="wrap">
   <header>
@@ -75,6 +70,16 @@ input[type=range]{width:100%;accent-color:var(--accent)}
       </div>
       <p class="hint" id="dlhint">輸出尺寸 1080 × 1440，可以直接發 IG。</p>
       <div id="out" hidden><img id="outImg" alt="產生的角色卡圖片"><p class="hint">如果沒有自動下載：電腦請右鍵「另存圖片」，手機請長按圖片儲存。</p></div>
+
+      <div class="sup">
+        <h2>補充頁</h2>
+        <p class="hint" style="margin:0 0 12px">上方放圖、下方放文字；沒有上傳圖片時，整頁都會放文字。</p>
+        <canvas id="cv2" width="1080" height="1440" aria-label="補充頁預覽"></canvas>
+        <div class="actions">
+          <button class="btn" type="button" id="dl2">下載補充頁</button>
+        </div>
+        <div id="out2" hidden><img id="outImg2" alt="產生的補充頁圖片"><p class="hint">如果沒有自動下載：電腦請右鍵「另存圖片」，手機請長按圖片儲存。</p></div>
+      </div>
     </div>
 
     <form id="f" autocomplete="off">
@@ -97,7 +102,7 @@ input[type=range]{width:100%;accent-color:var(--accent)}
           <label>上下<input type="range" id="oy" min="-1" max="1" step="0.01" value="0"></label>
         </div>
         <p class="hint" style="margin:0">建議上傳直式圖片。圖片只在你的瀏覽器處理，不會上傳到任何地方。</p>
-        <label>或用文字描述外觀<textarea id="look" maxlength="160" placeholder="沒有立繪時，這段文字會顯示在立繪區。例如：及肩黑髮，總穿著洗到褪色的灰色外套。"></textarea></label>
+        <label>或用文字描述外觀<textarea id="look" maxlength="160" placeholder="沒有立繪時，這段文字會顯示在立繪區。例如：及肩黑髮，總穿著洗到褪色的灰色外套，左手腕戴著舊型 HippoLink。"></textarea></label>
         <span class="count" id="lookC"></span>
         <button class="btn ghost" type="button" id="clearImg" style="align-self:flex-start">移除圖片，改用文字</button>
       </fieldset>
@@ -141,6 +146,21 @@ input[type=range]{width:100%;accent-color:var(--accent)}
         <span class="count" id="bioC"></span>
         <label>繪師／作者<input type="text" id="author" maxlength="20" placeholder="例如：@your_id"></label>
       </fieldset>
+
+      <fieldset>
+        <legend>補充頁</legend>
+        <label>標題<input type="text" id="stitle" maxlength="16" placeholder="補充設定"></label>
+        <label>上傳圖片（選填）<input type="file" id="simg" accept="image/*"></label>
+        <div class="row3">
+          <label>縮放<input type="range" id="szoom" min="1" max="3" step="0.01" value="1"></label>
+          <label>左右<input type="range" id="sox" min="-1" max="1" step="0.01" value="0"></label>
+          <label>上下<input type="range" id="soy" min="-1" max="1" step="0.01" value="0"></label>
+        </div>
+        <label>圖片高度：<span id="shV">50%</span><input type="range" id="sh" min="25" max="75" step="1" value="50"></label>
+        <button class="btn ghost" type="button" id="clearSimg" style="align-self:flex-start">移除圖片，整頁放文字</button>
+        <label>補充內容<textarea id="sup" maxlength="1500" rows="8" placeholder="角色的過去、人際關係、設定細節……可以換行分段。字數多時字會自動縮小。"></textarea></label>
+        <span class="count" id="supC"></span>
+      </fieldset>
     </form>
   </div>
   <p class="foot">原創角色企劃《解憂者有限公司》 · 填寫內容只儲存在你的瀏覽器</p>
@@ -159,7 +179,8 @@ var TH={
 var DEP=['富裕','普通','拮据','負債'];
 var SERIF='"Noto Serif TC","Songti TC",serif',SANS='"Noto Sans TC","PingFang TC","Microsoft JhengHei",sans-serif',MONO='"IBM Plex Mono",ui-monospace,Menlo,monospace';
 var cv=document.getElementById('cv'),x=cv.getContext('2d');
-var logo=new Image(),portrait=null,fields=['look','name','hid','age','gender','height','job','memory','t1','t2','t3','bio','author'];
+var logo=new Image(),portrait=null,fields=['look','name','hid','age','gender','height','job','memory','t1','t2','t3','bio','author','stitle','sup'];
+var sportrait=null;
 
 function $(id){return document.getElementById(id)}
 function val(id){return $(id).value.trim()}
@@ -265,6 +286,49 @@ function draw(){
   $('lookC').textContent=$('look').value.length+' / 160';$('memC').textContent=$('memory').value.length+' / 40';$('bioC').textContent=$('bio').value.length+' / 90';
 }
 
+/* 補充頁：上方圖片（選填），下方文字；沒有圖片時整頁放文字 */
+function wrapAll(text,maxW){
+  var lines=[];text.split('\n').forEach(function(par){
+    var cur='';for(var i=0;i<par.length;i++){var ch=par[i];if(x.measureText(cur+ch).width>maxW&&cur){lines.push(cur);cur=ch}else cur+=ch}
+    lines.push(cur);
+  });return lines;
+}
+var cv2=document.getElementById('cv2');
+function draw2(){
+  var t=TH[radio('faction')]||TH.employee,c=cv2.getContext('2d'),keep=x;x=c;
+  c.textBaseline='alphabetic';c.textAlign='left';
+  c.fillStyle=t.bg;c.fillRect(0,0,1080,1440);
+  if(logo.complete&&logo.naturalWidth)c.drawImage(tinted(logo,t.ink,52,41),64,64);
+  c.fillStyle=t.ink;c.font=font(400,22,MONO);c.letterSpacing='4px';c.fillText(t.head.replace('角色卡','補充頁'),130,94);
+  c.textAlign='right';c.letterSpacing='2px';c.fillText(t.num,1016,94);c.textAlign='left';c.letterSpacing='0px';
+  // 角色名稱與補充頁標題
+  var nm=or(val('name'),'[角色姓名]'),fs=56;c.font=font(900,fs,SERIF);
+  while(c.measureText(nm).width>600&&fs>32){fs-=2;c.font=font(900,fs,SERIF)}
+  c.fillStyle=t.ink;c.fillText(nm,64,196);
+  c.font=font(500,26,SANS);c.textAlign='right';c.fillText(or(val('stitle'),'補充設定'),1016,196);c.textAlign='left';
+  c.fillRect(64,222,952,2);
+  // 內容區：y 256 ～ 1330
+  var TOP=256,BOT=1330,y=TOP;
+  if(sportrait){
+    var PH=Math.round((BOT-TOP)*(+$('sh').value)/100),PX=64,PW=952;
+    c.fillStyle=t.pBg;c.fillRect(PX,TOP,PW,PH);
+    var z=+$('szoom').value,s=Math.max(PW/sportrait.width,PH/sportrait.height)*z,w=sportrait.width*s,h=sportrait.height*s;
+    var dx=PX+(PW-w)/2-(+$('sox').value)*(w-PW)/2,dy=TOP+(PH-h)/2-(+$('soy').value)*(h-PH)/2;
+    c.save();c.beginPath();c.rect(PX,TOP,PW,PH);c.clip();c.drawImage(sportrait,dx,dy,w,h);c.restore();
+    y=TOP+PH+48;
+  }
+  // 文字：字多時自動縮小（30px 到 20px），仍放不下才在最後一行加「…」
+  var txt=val('sup')||'[補充內容：角色的過去、人際關係、設定細節等，可以換行分段。]',avail=BOT-y,size=30,lh,lines;
+  for(;size>=20;size--){c.font=font(400,size,SANS);lh=Math.round(size*1.7);lines=wrapAll(txt,952);if(lines.length*lh<=avail)break}
+  if(size<20){size=20;c.font=font(400,size,SANS);lh=Math.round(size*1.7);lines=wrap(txt,952,Math.max(1,Math.floor(avail/lh)))}
+  c.fillStyle=t.ink;lines.forEach(function(l,n){c.fillText(l,64,y+size+n*lh)});
+  // 頁尾
+  c.font=font(400,20,MONO);c.letterSpacing='2px';
+  c.fillText('#解憂者有限公司',64,1376);c.textAlign='right';c.fillText(or(val('author'),''),1016,1376);c.textAlign='left';c.letterSpacing='0px';
+  $('supC').textContent=$('sup').value.length+' / 1500';$('shV').textContent=$('sh').value+'%';
+  x=keep;
+}
+
 var pending=false;
 function render(){
   if(pending)return;pending=true;
@@ -273,12 +337,12 @@ function render(){
     var txt=fields.map(val).join('')+'外觀[]角色姓名立繪年齡性別身高職業記憶存款狀態富裕普通拮据負債性格一二三最珍惜絕不出售的一句話描述這段簡介兩到行介紹背景與目前處境解憂者有限公司卡員工執法社會秩序局一般市民反抗訊號已截獲未連線#…・';
     var loads=[font(900,76,'"Noto Serif TC"'),font(600,32,'"Noto Serif TC"'),font(400,26,'"Noto Sans TC"'),font(500,30,'"Noto Sans TC"'),font(400,22,'"IBM Plex Mono"')].map(function(f){
       try{return document.fonts.load(f,txt)}catch(e){return Promise.resolve()}});
-    Promise.all(loads).catch(function(){}).then(draw);
+    Promise.all(loads).catch(function(){}).then(function(){draw();draw2()});
   });
 }
 
 function save(){
-  var o={faction:radio('faction'),deposit:radio('deposit')};fields.forEach(function(k){o[k]=$(k).value});
+  var o={faction:radio('faction'),deposit:radio('deposit'),sh:$('sh').value};fields.forEach(function(k){o[k]=$(k).value});
   try{localStorage.setItem(KEY,JSON.stringify(o))}catch(e){}
 }
 function load(){
@@ -287,6 +351,7 @@ function load(){
   fields.forEach(function(k){if(o[k]!=null)$(k).value=o[k]});
   var f=document.querySelector('input[name="faction"][value="'+o.faction+'"]');if(f)f.checked=true;
   var d=document.querySelector('input[name="deposit"][value="'+o.deposit+'"]');if(d)d.checked=true;
+  if(o.sh)$('sh').value=o.sh;
   if(!$('hid').value)$('hid').value=genId();
 }
 
@@ -299,13 +364,24 @@ $('img').onchange=function(){
   var file=this.files&&this.files[0];if(!file)return;
   var r=new FileReader();r.onload=function(){var im=new Image();im.onload=function(){portrait=im;$('zoom').value=1;$('ox').value=0;$('oy').value=0;render()};im.src=r.result};r.readAsDataURL(file);
 };
+$('clearSimg').onclick=function(){sportrait=null;$('simg').value='';render()};
+$('simg').onchange=function(){
+  var file=this.files&&this.files[0];if(!file)return;
+  var r=new FileReader();r.onload=function(){var im=new Image();im.onload=function(){sportrait=im;$('szoom').value=1;$('sox').value=0;$('soy').value=0;render()};im.src=r.result};r.readAsDataURL(file);
+};
 $('reset').onclick=function(){
-  $('f').reset();portrait=null;$('img').value='';$('hid').value=genId();$('out').hidden=true;save();render();
+  $('f').reset();portrait=null;sportrait=null;$('img').value='';$('simg').value='';$('out2').hidden=true;$('hid').value=genId();$('out').hidden=true;save();render();
 };
 $('dl').onclick=function(){
   draw();
   var url=cv.toDataURL('image/png'),name=(val('name')||'角色卡')+'_解憂者有限公司.png';
   $('outImg').src=url;$('out').hidden=false;
+  try{var a=document.createElement('a');a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove()}catch(e){}
+};
+$('dl2').onclick=function(){
+  draw2();
+  var url=cv2.toDataURL('image/png'),name=(val('name')||'角色卡')+'_補充頁_解憂者有限公司.png';
+  $('outImg2').src=url;$('out2').hidden=false;
   try{var a=document.createElement('a');a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove()}catch(e){}
 };
 logo.onload=render;logo.src=LOGO;
@@ -314,5 +390,4 @@ if(document.fonts&&document.fonts.ready)document.fonts.ready.then(render);
 })();
 </script>
 
-</body>
-</html>
+</body></html>
